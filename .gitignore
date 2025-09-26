@@ -1,0 +1,13 @@
+node_modules/
+uploads/
+nul
+
+# Sensitive files - NEVER commit these
+config.json
+watchsocials-firebase.json
+*.key
+*.pem
+.env
+.env.local
+.env.production
+.env.development

@@ -1,0 +1,11 @@
+{
+  "aws": {
+    "accessKeyId": "YOUR_AWS_ACCESS_KEY_ID",
+    "secretAccessKey": "YOUR_AWS_SECRET_ACCESS_KEY",
+    "region": "YOUR_AWS_REGION"
+  },
+  "twilio": {
+    "accountSid": "YOUR_TWILIO_ACCOUNT_SID",
+    "authToken": "YOUR_TWILIO_AUTH_TOKEN"
+  }
+}
