@@ -12,8 +12,8 @@ function sendEmail(req, user, callback) {
     port: 465,
     secure: false,
     auth: {
-      user: "morvaymarketing@gmail.com",
-      pass: "MM123456mm",
+      user: "sandeepnnegi2016@gmail.com",
+      pass: "oaoa zubj xalk rhxf",
     },
     // secure: true,
     // tls: {

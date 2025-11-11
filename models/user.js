@@ -123,9 +123,10 @@ userSchema.pre("save", function (next) {
   });
 });
 
-userSchema.pre("update", function (next) {
-  var user = this;
-  const password = user.getUpdate().password;
+// Hash password on updateOne
+userSchema.pre("updateOne", function (next) {
+  const update = this.getUpdate();
+  const password = update.password || (update.$set && update.$set.password);
   if (!password) {
     return next();
   }
@@ -135,12 +136,47 @@ userSchema.pre("update", function (next) {
         return next(err);
       }
       // hash the password using our new salt
-      bcrypt.hash(user.getUpdate().password, salt, function (err, hash) {
+      bcrypt.hash(password, salt, function (err, hash) {
         if (err) {
           return next(err);
         }
         // override the cleartext password with the hashed one
-        user.getUpdate().password = hash;
+        if (update.$set) {
+          update.$set.password = hash;
+        } else {
+          update.password = hash;
+        }
+        next();
+      });
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Hash password on findOneAndUpdate
+userSchema.pre("findOneAndUpdate", function (next) {
+  const update = this.getUpdate();
+  const password = update.password || (update.$set && update.$set.password);
+  if (!password) {
+    return next();
+  }
+  try {
+    bcrypt.genSalt(SALT_WORK_FACTOR, function (err, salt) {
+      if (err) {
+        return next(err);
+      }
+      // hash the password using our new salt
+      bcrypt.hash(password, salt, function (err, hash) {
+        if (err) {
+          return next(err);
+        }
+        // override the cleartext password with the hashed one
+        if (update.$set) {
+          update.$set.password = hash;
+        } else {
+          update.password = hash;
+        }
         next();
       });
     });

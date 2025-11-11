@@ -67,7 +67,7 @@ exports.getOne = (req, res) => {
 
 exports.update = (req, res) => {
   const { params, body } = req;
-  Forms.update({ _id: params._id }, body, (err, form) => {
+  Forms.updateOne({ _id: params._id }, body, (err, form) => {
     if (err) {
       res.status(400);
       res.send(err);

@@ -5,7 +5,18 @@ const formidable = require("formidable");
 const config = require("../config.json");
 const accountSid = config.twilio.twilioAccountSid;
 const authToken = config.twilio.twilioAuthToken;
-const client = require("twilio")(accountSid, authToken);
+// Make Twilio optional - only initialize if valid credentials are provided
+let client = null;
+if (accountSid && authToken && accountSid.startsWith('AC') && authToken !== 'your_twilio_auth_token') {
+  try {
+    client = require("twilio")(accountSid, authToken);
+    console.log("Twilio initialized successfully");
+  } catch (err) {
+    console.log("Twilio initialization failed:", err.message);
+  }
+} else {
+  console.log("Twilio credentials not configured - SMS features will be disabled");
+}
 const User = require("../models/user");
 const sendMessage = require("../services/send-message");
 const Otp = require("../models/otp");
@@ -120,7 +131,7 @@ exports.verifyOtpForResetPassword = (req, res) => {
     User.findOne({ phone: mobileNumber })
       .then((info) => {
         if (info && otp === info.resetPasswordOtp) {
-          User.update({ _id: info._id }, { password, resetPasswordOtp: null })
+          User.updateOne({ _id: info._id }, { password, resetPasswordOtp: null })
             .then((resp) => {
               if (resp.ok === 1) {
                 res.send({ message: `Your password has been updated` });
@@ -444,7 +455,7 @@ exports.forgotpassword = (req, res) => {
       res.send(err);
     }
     if (user) {
-      User.update(
+      User.updateOne(
         { _id: user._id },
         { password: newPassword },
         (err, updatedUser) => {
@@ -661,7 +672,7 @@ exports.updatePassword = (req, res) => {
     User.findOne({ _id: user._id }).exec((err, data) => {
       data.comparePassword(body.currentPassword, (err, isMatch) => {
         if (isMatch) {
-          User.update({ _id: data._id }, { password: body.newPassword }).exec(
+          User.updateOne({ _id: data._id }, { password: body.newPassword }).exec(
             (err, response) => {
               if (!err) {
                 res.status(200).send({

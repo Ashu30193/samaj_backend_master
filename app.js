@@ -15,7 +15,7 @@ app.use(
 );
 app.use(bodyParser.json({ limit: "30mb" }));
 
-const port = 8080;
+const port = 4000;
 const server = app.listen(port);
 const io = require("socket.io")(server);
 const activity = require("./routes/activity");
@@ -35,7 +35,7 @@ const enableDisableUser = require("./routes/user-enable-disable");
 const otp = require("./routes/otp");
 const serviceUser = require("./routes/service-user");
 app.use(cors({
-  origin: ["*"],
+  origin: ["http://localhost:3000", "http://localhost:8000"],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -46,22 +46,13 @@ const error = require("./middlewares/error");
 // Set up mongoose connection
 mongoose.Promise = global.Promise;
 const dBUrl = config.db.localurl;
-mongoose.connect(
-  dBUrl,
-  {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    useFindAndModify: false,
-    useCreateIndex: true,
-  },
-  (err) => {
-    if (err) {
-      console.log("DB Not Connected");
-    } else {
-      console.log("DB Connected");
-    }
-  },
-);
+mongoose.connect(dBUrl)
+  .then(() => {
+    console.log("DB Connected Successfully");
+  }).catch((err) => {
+    console.log("DB Connection Error:", err.message);
+    console.log("Please check your MongoDB connection string and credentials");
+  });
 // app.use(function (req, res, next) {
 
 //     // Website you wish to allow to connect

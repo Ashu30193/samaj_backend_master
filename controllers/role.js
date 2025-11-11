@@ -6,7 +6,7 @@ exports.list = async function (req, res) {
       res.status(400);
       res.send(err);
     }
-    Role.count({}).exec(function (err, count) {
+    Role.countDocuments({}).exec(function (err, count) {
       if (err) {
         res.status(400);
         res.send(err);
@@ -44,7 +44,7 @@ exports.create = function (req, res) {
 
 exports.update = function (req, res) {
   var body = req.body;
-  Role.update({ _id: body._id }, body, function (err, role) {
+  Role.updateOne({ _id: body._id }, body, function (err, role) {
     if (err) {
       res.status(400);
       res.send(err);
