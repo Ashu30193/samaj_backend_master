@@ -1,11 +1,18 @@
+require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const passport = require("passport");
 const mongoose = require("mongoose");
+const path = require("path");
 var bodyParser = require("body-parser");
 var app = express();
 const fileUpload = require("express-fileupload");
-app.use(fileUpload());
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: '/tmp/',
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB max
+  debug: true
+}));
 app.use(
   bodyParser.urlencoded({
     limit: "30mb",
@@ -14,6 +21,10 @@ app.use(
   }),
 );
 app.use(bodyParser.json({ limit: "30mb" }));
+
+// Serve static files from uploads directory (for localhost file storage)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+console.log('[App] Static file serving enabled for /uploads directory');
 
 const port = 4000;
 const server = app.listen(port);
@@ -40,12 +51,13 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-const config = require("./config.json");
 const error = require("./middlewares/error");
 
 // Set up mongoose connection
 mongoose.Promise = global.Promise;
-const dBUrl = config.db.localurl;
+const dBUrl = process.env.NODE_ENV === 'production'
+  ? process.env.DB_PRODUCTION_URL
+  : process.env.DB_LOCAL_URL;
 mongoose.connect(dBUrl)
   .then(() => {
     console.log("DB Connected Successfully");

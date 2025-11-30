@@ -1,5 +1,4 @@
 const jwt = require('jsonwebtoken');
-var config = require('../config.json');
 
 //Generate a new access token.
 const generateJWTToken = (user) => {
@@ -9,7 +8,7 @@ const generateJWTToken = (user) => {
       access: ['read', 'write'],
       data: user,
     },
-    config.secret,
+    process.env.JWT_SECRET,
     {
       expiresIn: 86400,
     }

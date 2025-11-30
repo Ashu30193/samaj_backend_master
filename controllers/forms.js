@@ -1,5 +1,4 @@
-const config = require("../config.json");
-const dev_db_url = config.db.url;
+const dev_db_url = process.env.DB_LOCAL_URL;
 const idGenerator = require("mongo-incremental-id-generator")(dev_db_url);
 const Forms = require("../models/forms");
 const _ = require("lodash");

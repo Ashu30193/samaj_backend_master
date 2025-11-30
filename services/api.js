@@ -1,5 +1,4 @@
 const jwt = require("jsonwebtoken");
-var config = require("../config.json");
 const SMS_URL = "https://businesssms.co.in/SMSV1/SubmitSMS";
 const AUTH_URL = "https://businesssms.co.in/AuthTokenV1/AuthToken";
 
@@ -11,8 +10,8 @@ exports.notverifiednotification = (phone) => {
   return new Promise(async (resolve, reject) => {
     try {
       let params = {
-        userID: config.loginCredentials.userID,
-        password: config.loginCredentials.password,
+        userID: process.env.SMS_USER_ID,
+        password: process.env.SMS_PASSWORD,
       };
       axios
         .get(AUTH_URL, {
@@ -22,9 +21,9 @@ exports.notverifiednotification = (phone) => {
           let TOKEN = response.data.TxnOutcome;
           let body = {
             phNo: phone,
-            text: config.notVerifiedNotification.text,
-            senderID: config.notVerifiedNotification.senderID,
-            templateId: config.notVerifiedNotification.templateId,
+            text: process.env.NOT_VERIFIED_SMS_TEXT || "Your account verification is pending.",
+            senderID: process.env.SMS_SENDER_ID,
+            templateId: process.env.NOT_VERIFIED_TEMPLATE_ID,
           };
           const headers = {
             "Content-Type": "application/json",
@@ -54,8 +53,8 @@ exports.verifiednotification = (phone) => {
   return new Promise(async (resolve, reject) => {
     try {
       let params = {
-        userID: config.loginCredentials.userID,
-        password: config.loginCredentials.password,
+        userID: process.env.SMS_USER_ID,
+        password: process.env.SMS_PASSWORD,
       };
       axios
         .get(AUTH_URL, {
@@ -65,9 +64,9 @@ exports.verifiednotification = (phone) => {
           let TOKEN = response.data.TxnOutcome;
           let body = {
             phNo: phone,
-            text: config.verifiedNotification.text,
-            senderID: config.verifiedNotification.senderID,
-            templateId: config.verifiedNotification.templateId,
+            text: process.env.VERIFIED_SMS_TEXT || "Your account has been verified!",
+            senderID: process.env.SMS_SENDER_ID,
+            templateId: process.env.VERIFIED_TEMPLATE_ID,
           };
 
           const headers = {
@@ -98,8 +97,8 @@ const signupnotification = (phone) => {
   return new Promise(async (resolve, reject) => {
     try {
       let params = {
-        userID: config.loginCredentials.userID,
-        password: config.loginCredentials.password,
+        userID: process.env.SMS_USER_ID,
+        password: process.env.SMS_PASSWORD,
       };
       axios
         .get(AUTH_URL, {
@@ -108,9 +107,9 @@ const signupnotification = (phone) => {
         .then(function (response) {
           let body = {
             phNo: phone,
-            text: config.signupNotification.text,
-            senderID: config.signupNotification.senderID,
-            templateId: config.signupNotification.templateId,
+            text: process.env.SIGNUP_SMS_TEXT || "Welcome! Thank you for signing up.",
+            senderID: process.env.SMS_SENDER_ID,
+            templateId: process.env.SIGNUP_TEMPLATE_ID,
           };
 
           const headers = {
@@ -142,8 +141,8 @@ exports.forgetPasswordNotification = (phone, otp) => {
   return new Promise(async (resolve, reject) => {
     try {
       let params = {
-        userID: config.loginCredentials.userID,
-        password: config.loginCredentials.password,
+        userID: process.env.SMS_USER_ID,
+        password: process.env.SMS_PASSWORD,
       };
       axios
         .get(AUTH_URL, {
@@ -152,8 +151,8 @@ exports.forgetPasswordNotification = (phone, otp) => {
         .then(function (response) {
           let body = {
             phNo: phone,
-            text: otp + " " + config.otpNotification.text,
-            senderID: config.otpNotification.senderID,
+            text: otp + " " + (process.env.OTP_SMS_TEXT || "is your OTP"),
+            senderID: process.env.SMS_SENDER_ID,
             templateId: "1007721507947005142",
           };
 

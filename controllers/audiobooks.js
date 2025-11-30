@@ -1,7 +1,6 @@
 const AudioBook = require("../models/audiobooks");
 const _ = require("lodash");
 const {v1: uuidv1} = require("uuid");
-const config = require("../config.json");
 const AWS = require("aws-sdk");
 
 function convertParams(model, params) {
@@ -63,12 +62,12 @@ const upload = ({ base64, fileName }, folder) => {
     const type = base64.split(";")[0].split("/")[1];
     const name = uuidv1() + fileName;
     const params = {
-      Bucket: config.aws.bucketName,
+      Bucket: process.env.AWS_BUCKET_NAME,
       Key: `${folder || "audiobooks"}/` + name,
     };
     const s3 = new AWS.S3({
-      accessKeyId: config.aws.accessKeyId,
-      secretAccessKey: config.aws.secretAccessKey,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       params,
     });
     s3.upload({ ACL: "public-read", Body: base64Data }, (err, data) => {

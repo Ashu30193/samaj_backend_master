@@ -1,6 +1,6 @@
 const fs = require("fs");
+const path = require("path");
 const AWS = require("aws-sdk");
-const config = require("../config.json");
 const ffmpeg = require("fluent-ffmpeg");
 const { v1: uuidv1 } = require("uuid");
 
@@ -8,11 +8,67 @@ ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 ffmpeg.setFfprobePath("/usr/bin/ffprobe");
 ffmpeg.setFlvtoolPath("/usr/bin");
 
+// Determine if we're in localhost/development mode
+const IS_LOCALHOST = process.env.NODE_ENV !== 'production' || !process.env.AWS_ACCESS_KEY_ID;
+const UPLOAD_DIR = path.join(__dirname, '../uploads');
+
+// Create uploads directory if it doesn't exist
+if (IS_LOCALHOST && !fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+  console.log('[Upload] Created uploads directory:', UPLOAD_DIR);
+}
+
 //upload file.
-exports.upload = async (path, originalFileName, modelName) => {
+exports.upload = async (filePath, originalFileName, modelName) => {
   return new Promise((resolve, reject) => {
-    fs.readFile(path, function (err, data) {
-      if (err) throw err; // Something went wrong!
+    // FOR LOCALHOST: Store files locally
+    if (IS_LOCALHOST) {
+      console.log("[Upload] Localhost mode - storing file locally");
+
+      const name = originalFileName.split(".");
+      const ext = name[name.length - 1];
+      const fileName = `${uuidv1()}.${ext}`;
+
+      // Create model subdirectory if it doesn't exist
+      const modelDir = path.join(UPLOAD_DIR, modelName);
+      if (!fs.existsSync(modelDir)) {
+        fs.mkdirSync(modelDir, { recursive: true });
+      }
+
+      const destinationPath = path.join(modelDir, fileName);
+      const publicUrl = `/uploads/${modelName}/${fileName}`;
+
+      // Copy file to uploads directory
+      fs.copyFile(filePath, destinationPath, (err) => {
+        // Delete temp file
+        fs.unlink(filePath, (unlinkErr) => {
+          if (unlinkErr) {
+            console.error('[Upload] Error deleting temp file:', unlinkErr);
+          }
+        });
+
+        if (err) {
+          console.log("[Upload] Local file save error:", err);
+          reject(err);
+          return;
+        }
+
+        console.log("[Upload] Local file saved successfully:", publicUrl);
+        resolve(publicUrl);
+      });
+
+      return;
+    }
+
+    // FOR PRODUCTION: Upload to S3
+    console.log("[Upload] Production mode - uploading to S3");
+    fs.readFile(filePath, function (err, data) {
+      if (err) {
+        console.log("[Upload] File read error:", err);
+        reject(err);
+        return;
+      }
+
       const name = originalFileName.split(".");
       const ext = name[name.length - 1];
       name.pop();
@@ -20,25 +76,27 @@ exports.upload = async (path, originalFileName, modelName) => {
       const fileName = tempfileName.replace(/,/g, "");
 
       const s3 = new AWS.S3({
-        accessKeyId: config.aws.accessKeyId,
-        secretAccessKey: config.aws.secretAccessKey,
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
         params: {
-          Bucket: config.aws.bucketName,
+          Bucket: process.env.AWS_BUCKET_NAME,
           Key: modelName + "/" + uuidv1() + "." + ext,
         },
       });
       s3.upload({ ACL: "public-read", Body: data }, function (err, data) {
         console.log(data, err, "DATA 1");
         // Whether there is an error or not, delete the temp file
-        fs.unlink(path, function (err) {
+        fs.unlink(filePath, function (err) {
           if (err) {
             console.error(err);
           }
         });
         if (err) {
-          reject();
-          return { err, status: "error" };
+          console.log("[Upload] S3 upload error:", err);
+          reject(err);
+          return;
         }
+        console.log("[Upload] S3 upload success:", data.Location);
         resolve(data.Location);
       });
     });
@@ -50,7 +108,7 @@ exports.uploadproductImage = (base64, folder, fileName) => {
     const base64Data = new Buffer.from(base64, "base64");
     const name = uuidv1() + "/" + `${fileName || ""}`;
     const params = {
-      Bucket: config.aws.bucketName,
+      Bucket: process.env.AWS_BUCKET_NAME,
       Key: `${folder || "university"}/` + name,
     };
 
@@ -77,7 +135,7 @@ exports.uploadnewsImage = (base64, fileName, folder) => {
     const base64Data = new Buffer.from(base64, "base64");
     const name = uuidv1() + "/" + `${fileName || ""}`;
     const params = {
-      Bucket: config.aws.bucketName,
+      Bucket: process.env.AWS_BUCKET_NAME,
       Key: `${folder || "news"}/` + name,
     };
 
@@ -104,7 +162,7 @@ exports.uploadeventsImage = (base64, fileName, folder) => {
     const base64Data = new Buffer.from(base64, "base64");
     const name = uuidv1() + "/" + `${fileName || ""}`;
     const params = {
-      Bucket: config.aws.bucketName,
+      Bucket: process.env.AWS_BUCKET_NAME,
       Key: `${folder || "events"}/` + name,
     };
 
@@ -180,15 +238,17 @@ exports.uploadImage = async (data, originalFileName, modelName) => {
       accessKeyId: config.aws.accessKeyId,
       secretAccessKey: config.aws.secretAccessKey,
       params: {
-        Bucket: config.aws.bucketName,
+        Bucket: process.env.AWS_BUCKET_NAME,
         Key: modelName + "/" + uuidv1() + "." + ext,
       },
     });
     s3.upload({ ACL: "public-read", Body: data }, function (err, data) {
       if (err) {
-        reject();
-        return null;
+        console.log("[UploadImage] S3 upload error:", err);
+        reject(err);
+        return;
       }
+      console.log("[UploadImage] S3 upload success:", data.Location);
       resolve(data.Location);
     });
   });

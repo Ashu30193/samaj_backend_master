@@ -144,66 +144,78 @@ exports.createNewsByAdmin = async (req, res) => {
   }
 };
 
-exports.create = (req, res) => {
-  const { body, user } = req;
+exports.create = async (req, res) => {
+  console.log("[News Create] Request received");
+  console.log("[News Create] Content-Type:", req.headers['content-type']);
+  console.log("[News Create] User:", req.user ? req.user._id : "No user");
+
+  const { body, user, files } = req;
 
   // Handle JSON requests (no file upload)
   if (req.headers['content-type'] && req.headers['content-type'].includes('application/json')) {
+    console.log("[News Create] Handling JSON request");
+    console.log("[News Create] Body:", JSON.stringify(body, null, 2));
+
     if (user) {
       body.createdBy = user._id;
       body.updatedBy = user._id;
     }
+
     News.create(body, (err, news) => {
       if (err) {
-        res.status(400);
-        res.send(err);
+        console.log("[News Create] Error creating news (JSON):", err);
+        return res.status(400).send(err);
       } else {
-        res.send(news);
+        console.log("[News Create] News created successfully (JSON):", news._id);
+        return res.status(200).send(news);
       }
     });
     return;
   }
 
   // Handle multipart form data (with or without file upload)
-  const form = new formidable.IncomingForm();
-  form.maxFileSize = 50 * 1024 * 1024; // 50MB max
-  form.keepExtensions = true;
-  form.multiples = false;
+  // Using express-fileupload (already parsed by middleware)
+  console.log("[News Create] Handling multipart/form-data request");
+  console.log("[News Create] Body fields:", body);
+  console.log("[News Create] Files:", files ? Object.keys(files) : "none");
 
-  form.parse(req, async (err, fields, files) => {
-
-    if (err) {
-      res.status(400);
-      res.send({ error: 'FormData parsing failed', details: err.message });
-      return;
-    }
+  try {
+    const newsData = { ...body };
 
     if (user) {
-      fields.createdBy = user._id;
-      fields.updatedBy = user._id;
+      newsData.createdBy = user._id;
+      newsData.updatedBy = user._id;
     }
 
     // Handle optional file upload - only if file is actually provided
-    if (files && files.file && files.file.size > 0 && files.file.name) {
+    if (files && files.file) {
+      console.log("[News Create] Uploading file:", files.file.name);
       try {
-        let location = files.file.path;
+        const tempPath = files.file.tempFilePath || files.file.path;
         const originalFileName = files.file.name;
-        const data = await upload(location, originalFileName, "news");
-        fields.image = data;
+        const imageUrl = await upload(tempPath, originalFileName, "news");
+        newsData.image = imageUrl;
+        console.log("[News Create] File uploaded successfully:", imageUrl);
       } catch (uploadError) {
+        console.log("[News Create] Upload error (continuing without image):", uploadError);
         // Continue without image instead of failing
       }
     }
 
-    News.create(fields, (err, post) => {
+    console.log("[News Create] Creating news document...");
+    News.create(newsData, (err, post) => {
       if (err) {
-        res.status(400);
-        res.send(err);
+        console.log("[News Create] Error creating news (FormData):", err);
+        return res.status(400).send(err);
       } else {
-        res.send(post);
+        console.log("[News Create] News created successfully (FormData):", post._id);
+        return res.status(200).send(post);
       }
     });
-  });
+  } catch (error) {
+    console.log("[News Create] Unexpected error:", error);
+    return res.status(500).send({ error: 'Internal server error', details: error.message });
+  }
 };
 
 exports.addNews = function (req, res) {
@@ -216,10 +228,11 @@ exports.addNews = function (req, res) {
 
   News.create(body, function (err, news) {
     if (err) {
-      res.status(400);
-      res.send(err);
+      console.log("[News AddNews] Error:", err);
+      return res.status(400).send(err);
     } else {
-      res.send(news);
+      console.log("[News AddNews] Success:", news._id);
+      return res.status(200).send(news);
     }
   });
 };

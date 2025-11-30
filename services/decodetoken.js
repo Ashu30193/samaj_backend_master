@@ -1,5 +1,4 @@
 const jwt = require("jsonwebtoken");
-var config = require("../config.json");
 
 //decode the access token.
 const decodetoken = (req) => {
@@ -8,7 +7,7 @@ const decodetoken = (req) => {
     if (parts.length === 2) {
       const credentials = parts[1];
       const token = credentials;
-      var decodedToken = jwt.verify(token, config.secret);
+      var decodedToken = jwt.verify(token, process.env.JWT_SECRET);
       return decodedToken;
     }
   }

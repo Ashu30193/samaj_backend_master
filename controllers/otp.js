@@ -1,5 +1,4 @@
 const jwt = require("jsonwebtoken");
-var config = require("../config.json");
 const SMS_URL = "https://businesssms.co.in/SMSV1/SubmitSMS";
 const AUTH_URL = "https://businesssms.co.in/AuthTokenV1/AuthToken";
 const sendMessage = require("../services/send-message");

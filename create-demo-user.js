@@ -1,10 +1,10 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
-const config = require('./config.json');
 const User = require('./models/user');
 const Role = require('./models/role');
 
 // Connect to MongoDB
-mongoose.connect(config.db.localurl)
+mongoose.connect(process.env.DB_LOCAL_URL)
   .then(async () => {
     console.log('Connected to MongoDB');
 

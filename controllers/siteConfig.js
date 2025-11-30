@@ -62,6 +62,10 @@ const updateResource = function (req, res) {
   const { body, user, params } = req;
   const { resource } = params;
 
+  console.log("Update Resource:", resource);
+  console.log("User:", user ? user._id : "No user");
+  console.log("Body:", JSON.stringify(body, null, 2));
+
   if (user && body[resource]) {
     body[resource] = body[resource].map((item) => ({
       ...item,
@@ -75,12 +79,16 @@ const updateResource = function (req, res) {
       { upsert: true },
       function (err, updatedRes) {
         if (err) {
+          console.log("Update error:", err);
           res.status(400);
           return res.send(err);
         }
 
-        if (updatedRes.nModified || updatedRes.upserted) {
-          res.status(204);
+        console.log("Update result:", updatedRes);
+
+        // Check for success: modified, upserted, or matched (already same data)
+        if (updatedRes.nModified || updatedRes.upserted || updatedRes.n > 0) {
+          res.status(200);
           res.send({ message: "Resource updated successfully!" });
         } else {
           res.status(400);

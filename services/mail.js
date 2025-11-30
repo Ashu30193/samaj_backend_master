@@ -3,17 +3,16 @@ const nodemailer = require("nodemailer");
 const ejs = require("ejs");
 const path = require("path");
 const ses = require("nodemailer-ses-transport");
-const config = require("../config.json");
 
 function sendEmail(req, user, callback) {
   // const host = req.get("host");
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
-    secure: false,
+    secure: true,
     auth: {
-      user: "sandeepnnegi2016@gmail.com",
-      pass: "oaoa zubj xalk rhxf",
+      user: "pareeksamaj1@gmail.com",
+      pass: "bvvk xkaf xroa fcey",
     },
     // secure: true,
     // tls: {
@@ -28,7 +27,7 @@ function sendEmail(req, user, callback) {
 
   ejs.renderFile(
     path.join(__dirname, "ejs/sendOtp.ejs"),
-    { name: user.name, verificationLink: "" },
+    { name: user.name, verificationLink: "https://google.com" },
     function (err, data) {
       if (err) {
         console.log(err);
@@ -37,8 +36,9 @@ function sendEmail(req, user, callback) {
         const defaultMails = [];
         // defaultMails.push(user.email);
         const mailOptions = {
-          from: "morvaymarketing@gmail.com", // sender address
-          to: "morvaymarketing@gmail.com", // list of receivers
+          from: "pareeksamaj1@gmail.com",
+          to: "abhishek.s.chauhan2002@gmail.com", // sender address
+          // to: "morvaymarketing@gmail.com", // list of receivers
           subject: "Hi " + user.name + ", Welcome greeting from BookTranspo", // Subject line
           text: "Hello " + user.name, // plain text body
           html: data,
@@ -56,4 +56,19 @@ function sendEmail(req, user, callback) {
   );
 }
 
-module.exports.sendEmail = sendEmail;
+// module.exports.sendEmail = sendEmail;
+
+sendEmail(
+  {},
+  {
+    name: "Sandeep Negi",
+    email: "abhishek.s.chauhan2002@gmail.com"
+  },
+  (err, res) => {
+    if (err) {
+      console.log("Error in sending email:", err);
+    } else {
+      console.log("Email sent successfully:", res);
+    }
+  }
+);

@@ -1,15 +1,9 @@
 const AWS = require("aws-sdk");
-const config = require("../config");
 
-var region;
-var accessKeyId;
-var secretAccessKey;
-AWS.config.region = region ? region : "us-east-1";
+AWS.config.region = process.env.AWS_REGION || "us-east-1";
 AWS.config.update({
-  accessKeyId: accessKeyId ? accessKeyId : config.snsKeys.accessKeyId,
-  secretAccessKey: secretAccessKey
-    ? secretAccessKey
-    : config.snsKeys.secretAccessKey,
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
 });
 const sns = new AWS.SNS();
 

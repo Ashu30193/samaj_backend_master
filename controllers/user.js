@@ -2,11 +2,11 @@
 const _ = require("lodash");
 const jwt = require("jsonwebtoken");
 const formidable = require("formidable");
-const config = require("../config.json");
-const accountSid = config.twilio.twilioAccountSid;
-const authToken = config.twilio.twilioAuthToken;
+
 // Make Twilio optional - only initialize if valid credentials are provided
 let client = null;
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
 if (accountSid && authToken && accountSid.startsWith('AC') && authToken !== 'your_twilio_auth_token') {
   try {
     client = require("twilio")(accountSid, authToken);

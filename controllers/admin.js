@@ -1,7 +1,6 @@
 /* eslint-disable no-underscore-dangle */
 const _ = require("lodash");
 const jwt = require("jsonwebtoken");
-const config = require("../config.json");
 const SystemAdmin = require("../models/admin");
 const User = require("../models/user");
 const Role = require("../models/role");
@@ -39,7 +38,7 @@ exports.adminLogin = (req, res, next) => {
                   access: ["read", "write"],
                   data: admin,
                 },
-                config.secret,
+                process.env.JWT_SECRET,
                 {
                   expiresIn: 86400,
                 },
