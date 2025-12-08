@@ -113,8 +113,8 @@ exports.uploadproductImage = (base64, folder, fileName) => {
     };
 
     const s3 = new AWS.S3({
-      accessKeyId: config.aws.accessKeyId,
-      secretAccessKey: config.aws.secretAccessKey,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       params,
     });
 
@@ -140,8 +140,8 @@ exports.uploadnewsImage = (base64, fileName, folder) => {
     };
 
     const s3 = new AWS.S3({
-      accessKeyId: config.aws.accessKeyId,
-      secretAccessKey: config.aws.secretAccessKey,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       params,
     });
 
@@ -167,8 +167,8 @@ exports.uploadeventsImage = (base64, fileName, folder) => {
     };
 
     const s3 = new AWS.S3({
-      accessKeyId: config.aws.accessKeyId,
-      secretAccessKey: config.aws.secretAccessKey,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       params,
     });
 
@@ -208,13 +208,13 @@ exports.compressVideo = (files, cb) => {
 //Deletes file from the bucket.
 exports.deleteFile = async filePath => {
   var params = {
-    Bucket: config.aws.bucketName,
+    Bucket: process.env.AWS_BUCKET_NAME,
     Key: filePath,
   };
 
   const bucketInstance = new AWS.S3({
-    accessKeyId: config.aws.accessKeyId,
-    secretAccessKey: config.aws.secretAccessKey,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
     params,
   });
   let result = null;
@@ -235,8 +235,8 @@ exports.uploadImage = async (data, originalFileName, modelName) => {
     const ext = originalFileName;
 
     const s3 = new AWS.S3({
-      accessKeyId: config.aws.accessKeyId,
-      secretAccessKey: config.aws.secretAccessKey,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
       params: {
         Bucket: process.env.AWS_BUCKET_NAME,
         Key: modelName + "/" + uuidv1() + "." + ext,
