@@ -263,7 +263,7 @@ exports.create = (req, res) => {
                     access: ["read", "write"],
                     data: user,
                   },
-                  config.secret,
+                  process.env.JWT_SECRET,
                   {
                     expiresIn: 86400,
                   },
@@ -403,7 +403,7 @@ exports.login = (req, res, next) => {
                       access: ["read", "write"],
                       data: user,
                     },
-                    config.secret,
+                    process.env.JWT_SECRET,
                     {
                       expiresIn: 86400,
                     },
@@ -641,7 +641,7 @@ exports.createRefreshToken = (req, res) => {
               access: ["read", "write"],
               data: user,
             },
-            config.secret,
+            process.env.JWT_SECRET,
             {
               expiresIn: 86400,
             },

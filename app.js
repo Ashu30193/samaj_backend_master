@@ -46,7 +46,7 @@ const enableDisableUser = require("./routes/user-enable-disable");
 const otp = require("./routes/otp");
 const serviceUser = require("./routes/service-user");
 app.use(cors({
-  origin: ["http://localhost:3000", "http://localhost:8000"],
+  origin: ["http://localhost:3000", "http://localhost:8000", "http://15.207.87.131", "http://pareeksamaj.in", "http://www.pareeksamaj.in", "https://pareeksamaj.in", "https://www.pareeksamaj.in"],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
