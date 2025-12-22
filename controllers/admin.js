@@ -214,6 +214,26 @@ exports.delete = async (req, res) => {
   }
 };
 
+// Check if email already exists in admin
+exports.isExistingLoginId = async (req, res) => {
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).send({ message: "Email is required" });
+  }
+
+  try {
+    const existingAdmin = await SystemAdmin.findOne({ email: user_id.toLowerCase() });
+    if (existingAdmin) {
+      return res.status(200).send({ exists: true, message: "Email already exists" });
+    }
+    return res.status(200).send({ exists: false, message: "Email is available" });
+  } catch (error) {
+    console.log("[isExistingLoginId] Error:", error);
+    return res.status(500).send({ message: "Error checking email", error: error.message });
+  }
+};
+
 // Invite staff/admin
 exports.inviteStaff = async (req, res) => {
   const { admin } = req;
