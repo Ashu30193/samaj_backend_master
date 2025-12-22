@@ -8,6 +8,59 @@ ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 ffmpeg.setFfprobePath("/usr/bin/ffprobe");
 ffmpeg.setFlvtoolPath("/usr/bin");
 
+// S3 instance for presigned URLs
+const s3Instance = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+  signatureVersion: 'v4'
+});
+
+// Generate presigned URL for viewing (valid for 7 days)
+exports.getPresignedUrl = (key) => {
+  if (!key) return null;
+
+  // If it's already a full URL, extract the key
+  let s3Key = key;
+  if (key.includes('.amazonaws.com/')) {
+    s3Key = key.split('.amazonaws.com/')[1];
+  }
+
+  try {
+    const url = s3Instance.getSignedUrl('getObject', {
+      Bucket: process.env.AWS_BUCKET_NAME,
+      Key: s3Key,
+      Expires: 604800 // 7 days in seconds
+    });
+    return url;
+  } catch (err) {
+    console.log("[Presigned URL] Error:", err);
+    return key; // Return original if error
+  }
+};
+
+// Helper to convert image fields in an object to presigned URLs
+exports.convertToPresignedUrls = (obj, imageFields = ['image', 'profile_url', 'cover_image', 'thumbnail']) => {
+  if (!obj) return obj;
+
+  const convert = (item) => {
+    if (!item || typeof item !== 'object') return item;
+
+    const converted = { ...item._doc || item };
+    for (const field of imageFields) {
+      if (converted[field] && typeof converted[field] === 'string' && converted[field].includes('amazonaws.com')) {
+        converted[field] = exports.getPresignedUrl(converted[field]);
+      }
+    }
+    return converted;
+  };
+
+  if (Array.isArray(obj)) {
+    return obj.map(convert);
+  }
+  return convert(obj);
+};
+
 // Determine if we're in localhost/development mode
 const IS_LOCALHOST = process.env.NODE_ENV !== 'production' || !process.env.AWS_ACCESS_KEY_ID;
 const UPLOAD_DIR = path.join(__dirname, '../uploads');
@@ -83,7 +136,7 @@ exports.upload = async (filePath, originalFileName, modelName) => {
           Key: modelName + "/" + uuidv1() + "." + ext,
         },
       });
-      s3.upload({ ACL: "public-read", Body: data }, function (err, data) {
+      s3.upload({ Body: data }, function (err, data) {
         console.log(data, err, "DATA 1");
         // Whether there is an error or not, delete the temp file
         fs.unlink(filePath, function (err) {
@@ -118,8 +171,7 @@ exports.uploadproductImage = (base64, folder, fileName) => {
       params,
     });
 
-    s3.upload({ ACL: "public-read", Body: base64Data }, (err, data) => {
-      // Whether there is an error or not, delete the temp file
+    s3.upload({ Body: base64Data }, (err, data) => {
       if (err) {
         return reject(err);
       }
@@ -145,8 +197,7 @@ exports.uploadnewsImage = (base64, fileName, folder) => {
       params,
     });
 
-    s3.upload({ ACL: "public-read", Body: base64Data }, (err, data) => {
-      // Whether there is an error or not, delete the temp file
+    s3.upload({ Body: base64Data }, (err, data) => {
       if (err) {
         return reject(err);
       }
@@ -172,8 +223,7 @@ exports.uploadeventsImage = (base64, fileName, folder) => {
       params,
     });
 
-    s3.upload({ ACL: "public-read", Body: base64Data }, (err, data) => {
-      // Whether there is an error or not, delete the temp file
+    s3.upload({ Body: base64Data }, (err, data) => {
       if (err) {
         return reject(err);
       }
@@ -242,7 +292,7 @@ exports.uploadImage = async (data, originalFileName, modelName) => {
         Key: modelName + "/" + uuidv1() + "." + ext,
       },
     });
-    s3.upload({ ACL: "public-read", Body: data }, function (err, data) {
+    s3.upload({ Body: data }, function (err, data) {
       if (err) {
         console.log("[UploadImage] S3 upload error:", err);
         reject(err);

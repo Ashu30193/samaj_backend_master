@@ -5,6 +5,7 @@ var user_controller = require("../controllers/user");
 const { validate } = require("../middlewares/policies");
 
 router.get("/test", user_controller.test);
+router.get("/isExistingLoginId", user_controller.isExistingLoginId);
 router.get("/list", validate, user_controller.list);
 router.get("/matrimonialList", user_controller.matrimonialList);
 router.get("/currentuser", validate, user_controller.currentUser);

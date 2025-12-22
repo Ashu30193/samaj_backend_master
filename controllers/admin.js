@@ -213,3 +213,72 @@ exports.delete = async (req, res) => {
     return res.status(401).send({ message: "Unauthorized User." });
   }
 };
+
+// Invite staff/admin
+exports.inviteStaff = async (req, res) => {
+  const { admin } = req;
+  const staffList = req.body; // Array of staff to invite
+
+  if (!Array.isArray(staffList) || staffList.length === 0) {
+    return res.status(400).send({ message: "Please provide staff details" });
+  }
+
+  try {
+    const results = [];
+
+    for (const staff of staffList) {
+      const { first_name, last_name, email, role_type_id } = staff;
+
+      if (!first_name || !last_name || !email) {
+        results.push({ email, success: false, message: "Missing required fields" });
+        continue;
+      }
+
+      // Check if admin already exists
+      const existingAdmin = await SystemAdmin.findOne({ email });
+      if (existingAdmin) {
+        results.push({ email, success: false, message: "Account already exists with this email" });
+        continue;
+      }
+
+      // Map role_type_id to role name
+      let roleName = 'employee';
+      if (role_type_id === 'ADMIN') roleName = 'admin';
+      else if (role_type_id === 'MANAGER') roleName = 'manager';
+      else if (role_type_id === 'EMPLOYEE') roleName = 'employee';
+
+      // Create or find role
+      const role = await createOrFindRole(roleName);
+
+      // Generate a temporary password
+      const tempPassword = Math.random().toString(36).slice(-8);
+
+      // Create the staff member
+      const newStaff = await SystemAdmin.create({
+        first_name,
+        last_name,
+        email,
+        password: tempPassword,
+        role: role._id,
+        isActive: true,
+        createdBy: admin._id,
+        updatedBy: admin._id
+      });
+
+      results.push({
+        email,
+        success: true,
+        message: "Staff created successfully",
+        tempPassword // In production, send this via email instead
+      });
+    }
+
+    res.status(200).send({
+      responseMessage: "success",
+      results
+    });
+  } catch (error) {
+    console.log("[InviteStaff] Error:", error);
+    res.status(500).send({ message: "Error creating staff", error: error.message });
+  }
+};

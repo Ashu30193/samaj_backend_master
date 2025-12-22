@@ -540,82 +540,73 @@ const createOrFindRole = (role) =>
 // Resend OTP.
 exports.resendOtp = async (req, res) => {
   const { params } = req;
-  User.findOne({ _id: params.id }, async (err, user) => {
-    if (err) {
-      return res.status(400).send(err);
-    }
+
+  try {
+    const user = await User.findOne({ _id: params.id });
 
     if (!user) {
       return res.status(400).json({ message: "User not found" });
     }
+
     const otp = sendMessage.generateOTP();
     const date = new Date();
     const expiryDate = new Date();
     expiryDate.setTime(date.getTime() + 5 * 1000 * 60);
-    client.messages
-      .create({
-        body: `Hi, OTP for your account is ${otp}. Please enter the OTP to proceed. Thank you, Team WatchSocials`,
-        from: "+19283623557",
-        to: user.phone,
-      })
-      .then(() => {
-        User.updateOne(
-          { _id: user._id },
-          { otpInfo: { otp, expiresIn: expiryDate } },
-          (userErr, data) => {
-            if (userErr) {
-              return res.status(400).send(userErr);
-            }
-            return res.status(200).send(data);
-          },
-        );
-      })
-      .catch(() => res.status(500).send({ msg: "Failed to send OTP" }));
-  });
+
+    const message = `Hi, Your OTP is ${otp}. Please enter the OTP to proceed. Thank you, Team Pareek Samaj`;
+
+    // Send SMS via Twilio
+    await sendSMS(message, user.phone);
+    console.log("[ResendOtp] OTP sent to:", user.phone);
+
+    // Update user with OTP info
+    await User.updateOne(
+      { _id: user._id },
+      { otpInfo: { otp, expiresIn: expiryDate } }
+    );
+
+    return res.status(200).send({
+      message: "OTP resent successfully",
+      phone: user.phone
+    });
+  } catch (error) {
+    console.log("[ResendOtp] Error:", error.message);
+    return res.status(500).send({ message: "Failed to send OTP", error: error.message });
+  }
 };
 // send OTP.
 exports.sendOtp = async (req, res) => {
-  const { params, body } = req;
+  const { body } = req;
+
+  if (!body.phone) {
+    return res.status(400).send({ message: "Phone number is required" });
+  }
+
   const otp = sendMessage.generateOTP();
-  console.log(
-    await sendSMS(
-      `Hi, OTP for your account is ${otp}. Please enter the OTP to proceed. Thank you, Team WatchSocials`,
-      body.phone,
-    ),
-  );
-  return;
-  client.messages
-    .create({
-      body: `Hi, OTP for your account is ${otp}. Please enter the OTP to proceed. Thank you, Team WatchSocials`,
-      from: "+19283623557",
-      to: body.phone,
-    })
-    .then(() => {
-      Otp.findOne({ phone: body.phone }, (err, phone) => {
-        if (err) {
-          return res.status(400).send(err);
-        }
-        if (phone) {
-          Otp.updateOne({ phone: body.phone }, { otp: otp }, (error, data) => {
-            if (userErr) {
-              return res.status(400).send(error);
-            }
-            return res.status(200).send(data);
-          });
-        } else {
-          Otp.create({ phone: phone, otp: otp }, (error, data) => {
-            if (userErr) {
-              return res.status(400).send(error);
-            }
-            return res.status(200).send(data);
-          });
-        }
-      });
-    })
-    .catch((error) => {
-      console.log(error);
-      res.status(500).send({ msg: "Failed to send OTP" });
+  const message = `Hi, Your OTP is ${otp}. Please enter the OTP to proceed. Thank you, Team Pareek Samaj`;
+
+  try {
+    // Send SMS via Twilio
+    await sendSMS(message, body.phone);
+    console.log("[SendOtp] OTP sent to:", body.phone);
+
+    // Save OTP in database
+    const existingOtp = await Otp.findOne({ phone: body.phone });
+
+    if (existingOtp) {
+      await Otp.updateOne({ phone: body.phone }, { otp: otp });
+    } else {
+      await Otp.create({ phone: body.phone, otp: otp });
+    }
+
+    return res.status(200).send({
+      message: "OTP sent successfully",
+      phone: body.phone
     });
+  } catch (error) {
+    console.log("[SendOtp] Error:", error.message);
+    return res.status(500).send({ message: "Failed to send OTP", error: error.message });
+  }
 };
 
 /**
@@ -875,4 +866,37 @@ exports.editUserPrivateDetails = (req, res) => {
     .catch((err) => {
       res.status(400).send({ message: "Unable to update the Private details" });
     });
+};
+
+// Check if email/login ID already exists
+exports.isExistingLoginId = async (req, res) => {
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).send({ message: "user_id is required" });
+  }
+
+  try {
+    // Check in User collection
+    const existingUser = await User.findOne({ email: user_id });
+
+    // Also check in Admin collection
+    const SystemAdmin = require("../models/admin");
+    const existingAdmin = await SystemAdmin.findOne({ email: user_id });
+
+    if (existingUser || existingAdmin) {
+      return res.status(400).send({
+        exists: true,
+        message: "Email already exists"
+      });
+    }
+
+    return res.status(200).send({
+      exists: false,
+      message: "Email is available"
+    });
+  } catch (error) {
+    console.log("[isExistingLoginId] Error:", error);
+    return res.status(500).send({ message: "Error checking email" });
+  }
 };
