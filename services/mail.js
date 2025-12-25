@@ -2,6 +2,14 @@ const nodemailer = require("nodemailer");
 const ejs = require("ejs");
 const path = require("path");
 
+// Log SMTP configuration (without password)
+console.log("[Mail Service] Initializing with config:", {
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT) || 465,
+  user: process.env.SMTP_USER,
+  hasPassword: !!process.env.SMTP_PASS
+});
+
 // Create reusable transporter using environment variables
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -11,6 +19,15 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+});
+
+// Verify transporter connection
+transporter.verify(function (error, success) {
+  if (error) {
+    console.log("[Mail Service] SMTP connection error:", error.message);
+  } else {
+    console.log("[Mail Service] SMTP server is ready to send emails");
+  }
 });
 
 // Send OTP email (legacy function)
@@ -46,11 +63,23 @@ function sendEmail(req, user, callback) {
 // Send staff invitation email with credentials
 function sendStaffInviteEmail(staffData) {
   return new Promise((resolve, reject) => {
+    console.log("[sendStaffInviteEmail] Starting email send process...");
+    console.log("[sendStaffInviteEmail] Staff data received:", {
+      first_name: staffData.first_name,
+      last_name: staffData.last_name,
+      email: staffData.email,
+      role: staffData.role,
+      hasPassword: !!staffData.tempPassword
+    });
+
     const { first_name, last_name, email, tempPassword, role } = staffData;
     const fullName = `${first_name} ${last_name}`;
 
+    const templatePath = path.join(__dirname, "ejs/staffInvite.ejs");
+    console.log("[sendStaffInviteEmail] Template path:", templatePath);
+
     ejs.renderFile(
-      path.join(__dirname, "ejs/staffInvite.ejs"),
+      templatePath,
       {
         name: fullName,
         email: email,
@@ -60,9 +89,12 @@ function sendStaffInviteEmail(staffData) {
       },
       function (err, html) {
         if (err) {
-          console.log("[sendStaffInviteEmail] Template error:", err);
+          console.log("[sendStaffInviteEmail] Template render error:", err.message);
+          console.log("[sendStaffInviteEmail] Full error:", err);
           return reject(err);
         }
+
+        console.log("[sendStaffInviteEmail] Template rendered successfully, length:", html.length);
 
         const mailOptions = {
           from: process.env.SMTP_FROM || process.env.SMTP_USER,
@@ -72,12 +104,22 @@ function sendStaffInviteEmail(staffData) {
           html: html,
         };
 
+        console.log("[sendStaffInviteEmail] Mail options:", {
+          from: mailOptions.from,
+          to: mailOptions.to,
+          subject: mailOptions.subject
+        });
+
+        console.log("[sendStaffInviteEmail] Calling transporter.sendMail...");
+
         transporter.sendMail(mailOptions, function (error, response) {
           if (error) {
-            console.log("[sendStaffInviteEmail] Error:", error);
+            console.log("[sendStaffInviteEmail] SendMail Error:", error.message);
+            console.log("[sendStaffInviteEmail] Full error object:", JSON.stringify(error, null, 2));
             return reject(error);
           }
-          console.log("[sendStaffInviteEmail] Email sent to:", email);
+          console.log("[sendStaffInviteEmail] SUCCESS! Email sent to:", email);
+          console.log("[sendStaffInviteEmail] Response:", JSON.stringify(response, null, 2));
           return resolve(response);
         });
       }
