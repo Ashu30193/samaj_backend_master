@@ -2,14 +2,14 @@ const nodemailer = require("nodemailer");
 const ejs = require("ejs");
 const path = require("path");
 
-// Create reusable transporter
+// Create reusable transporter using environment variables
 const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
+  host: process.env.SMTP_HOST || "smtp.gmail.com",
+  port: parseInt(process.env.SMTP_PORT) || 465,
   secure: true,
   auth: {
-    user: "pareeksamaj1@gmail.com",
-    pass: "bvvk xkaf xroa fcey",
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
   },
 });
 
@@ -24,7 +24,7 @@ function sendEmail(req, user, callback) {
         return callback(err);
       } else {
         const mailOptions = {
-          from: "pareeksamaj1@gmail.com",
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
           to: user.email,
           subject: "Hi " + user.name + ", Welcome greeting from Pareek Samaj",
           text: "Hello " + user.name,
@@ -65,7 +65,7 @@ function sendStaffInviteEmail(staffData) {
         }
 
         const mailOptions = {
-          from: "pareeksamaj1@gmail.com",
+          from: process.env.SMTP_FROM || process.env.SMTP_USER,
           to: email,
           subject: `Welcome to Pareek Samaj - Your Account Has Been Created`,
           text: `Hello ${fullName},\n\nYou have been invited to join Pareek Samaj as ${role}.\n\nYour login credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nPlease login at: http://15.207.87.131/admin/login\n\nPlease change your password after first login.\n\nRegards,\nPareek Samaj Team`,
