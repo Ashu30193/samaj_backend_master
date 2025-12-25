@@ -1,30 +1,20 @@
-const fs = require("fs");
 const nodemailer = require("nodemailer");
 const ejs = require("ejs");
 const path = require("path");
-const ses = require("nodemailer-ses-transport");
 
+// Create reusable transporter
+const transporter = nodemailer.createTransport({
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
+  auth: {
+    user: "pareeksamaj1@gmail.com",
+    pass: "bvvk xkaf xroa fcey",
+  },
+});
+
+// Send OTP email (legacy function)
 function sendEmail(req, user, callback) {
-  // const host = req.get("host");
-  const transporter = nodemailer.createTransport({
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: true,
-    auth: {
-      user: "pareeksamaj1@gmail.com",
-      pass: "bvvk xkaf xroa fcey",
-    },
-    // secure: true,
-    // tls: {
-    //   // do not fail on invalid certs
-    //   rejectUnauthorized: false,
-    // },
-    // ses({
-    //   accessKeyId: config.aws.accessKeyId,
-    //   secretAccessKey: config.aws.secretAccessKey,
-    // }),
-  });
-
   ejs.renderFile(
     path.join(__dirname, "ejs/sendOtp.ejs"),
     { name: user.name, verificationLink: "https://google.com" },
@@ -33,14 +23,11 @@ function sendEmail(req, user, callback) {
         console.log(err);
         return callback(err);
       } else {
-        const defaultMails = [];
-        // defaultMails.push(user.email);
         const mailOptions = {
           from: "pareeksamaj1@gmail.com",
-          to: "abhishek.s.chauhan2002@gmail.com", // sender address
-          // to: "morvaymarketing@gmail.com", // list of receivers
-          subject: "Hi " + user.name + ", Welcome greeting from BookTranspo", // Subject line
-          text: "Hello " + user.name, // plain text body
+          to: user.email,
+          subject: "Hi " + user.name + ", Welcome greeting from Pareek Samaj",
+          text: "Hello " + user.name,
           html: data,
         };
         transporter.sendMail(mailOptions, function (error, response) {
@@ -56,19 +43,49 @@ function sendEmail(req, user, callback) {
   );
 }
 
-// module.exports.sendEmail = sendEmail;
+// Send staff invitation email with credentials
+function sendStaffInviteEmail(staffData) {
+  return new Promise((resolve, reject) => {
+    const { first_name, last_name, email, tempPassword, role } = staffData;
+    const fullName = `${first_name} ${last_name}`;
 
-sendEmail(
-  {},
-  {
-    name: "Sandeep Negi",
-    email: "abhishek.s.chauhan2002@gmail.com"
-  },
-  (err, res) => {
-    if (err) {
-      console.log("Error in sending email:", err);
-    } else {
-      console.log("Email sent successfully:", res);
-    }
-  }
-);
+    ejs.renderFile(
+      path.join(__dirname, "ejs/staffInvite.ejs"),
+      {
+        name: fullName,
+        email: email,
+        tempPassword: tempPassword,
+        role: role,
+        loginUrl: "http://15.207.87.131/admin/login"
+      },
+      function (err, html) {
+        if (err) {
+          console.log("[sendStaffInviteEmail] Template error:", err);
+          return reject(err);
+        }
+
+        const mailOptions = {
+          from: "pareeksamaj1@gmail.com",
+          to: email,
+          subject: `Welcome to Pareek Samaj - Your Account Has Been Created`,
+          text: `Hello ${fullName},\n\nYou have been invited to join Pareek Samaj as ${role}.\n\nYour login credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nPlease login at: http://15.207.87.131/admin/login\n\nPlease change your password after first login.\n\nRegards,\nPareek Samaj Team`,
+          html: html,
+        };
+
+        transporter.sendMail(mailOptions, function (error, response) {
+          if (error) {
+            console.log("[sendStaffInviteEmail] Error:", error);
+            return reject(error);
+          }
+          console.log("[sendStaffInviteEmail] Email sent to:", email);
+          return resolve(response);
+        });
+      }
+    );
+  });
+}
+
+module.exports = {
+  sendEmail,
+  sendStaffInviteEmail
+};

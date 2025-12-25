@@ -5,6 +5,7 @@ const SystemAdmin = require("../models/admin");
 const User = require("../models/user");
 const Role = require("../models/role");
 const Post = require("../models/post");
+const { sendStaffInviteEmail } = require("../services/mail");
 
 exports.adminLogin = (req, res, next) => {
   const q = {
@@ -255,7 +256,7 @@ exports.inviteStaff = async (req, res) => {
       }
 
       // Check if admin already exists
-      const existingAdmin = await SystemAdmin.findOne({ email });
+      const existingAdmin = await SystemAdmin.findOne({ email: email.toLowerCase() });
       if (existingAdmin) {
         results.push({ email, success: false, message: "Account already exists with this email" });
         continue;
@@ -277,7 +278,7 @@ exports.inviteStaff = async (req, res) => {
       const newStaff = await SystemAdmin.create({
         first_name,
         last_name,
-        email,
+        email: email.toLowerCase(),
         password: tempPassword,
         role: role._id,
         isActive: true,
@@ -285,11 +286,27 @@ exports.inviteStaff = async (req, res) => {
         updatedBy: admin._id
       });
 
+      // Send invitation email with credentials
+      let emailSent = false;
+      try {
+        await sendStaffInviteEmail({
+          first_name,
+          last_name,
+          email: email.toLowerCase(),
+          tempPassword,
+          role: roleName.charAt(0).toUpperCase() + roleName.slice(1)
+        });
+        emailSent = true;
+        console.log("[InviteStaff] Email sent successfully to:", email);
+      } catch (emailError) {
+        console.log("[InviteStaff] Failed to send email to:", email, emailError.message);
+      }
+
       results.push({
         email,
         success: true,
-        message: "Staff created successfully",
-        tempPassword // In production, send this via email instead
+        message: emailSent ? "Staff created and invitation email sent" : "Staff created but email failed to send",
+        emailSent
       });
     }
 
