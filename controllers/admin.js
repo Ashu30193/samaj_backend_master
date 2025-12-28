@@ -158,6 +158,7 @@ exports.findOne = (req, res) => {
           Post.countDocuments({ admin: id, type: "video" }, (errors, videoCount) =>
             res.status(200).send({
               ...admin._doc,
+              name: `${admin.first_name} ${admin.last_name}`,
               imageCount,
               videoCount,
               totalPosts: Number(imageCount) + Number(videoCount),
