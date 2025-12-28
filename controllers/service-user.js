@@ -35,6 +35,7 @@ exports.list = async function (req, res) {
     // Get admins with pagination
     const admins = await SystemAdmin.find(filter)
       .populate("role", "name")
+      .populate("createdBy", "first_name last_name")
       .select("-password") // Exclude password from response
       .skip(skip)
       .limit(limit)
@@ -43,9 +44,28 @@ exports.list = async function (req, res) {
     // Get total count for pagination
     const total = await SystemAdmin.countDocuments(filter);
 
-    // Format response
+    // Transform data to match frontend expected format
+    const result = admins.map(admin => ({
+      id: admin._id,
+      to_name: `${admin.first_name} ${admin.last_name}`,
+      first_name: admin.first_name,
+      last_name: admin.last_name,
+      email: admin.email,
+      enabled: admin.isActive ? 'Y' : 'N',
+      isActive: admin.isActive,
+      role: admin.role,
+      party_id_from: admin.createdBy ? {
+        name: `${admin.createdBy.first_name} ${admin.createdBy.last_name}`
+      } : null,
+      last_invited_on: admin.created_at,
+      created_at: admin.created_at,
+      updated_at: admin.updated_at
+    }));
+
+    // Format response to match frontend expectations
     const response = {
-      data: admins,
+      result: result,
+      totalCount: total,
       pagination: {
         total: total,
         view_size: limit,
