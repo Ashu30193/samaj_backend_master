@@ -5,20 +5,23 @@ const path = require("path");
 // Log SMTP configuration (without password)
 console.log("[Mail Service] Initializing with config:", {
   host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT) || 465,
-  user: process.env.SMTP_USER,
-  hasPassword: !!process.env.SMTP_PASS
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  user: process.env.MAIL_USER,
+  hasPassword: !!process.env.MAIL_PASS
 });
 
 // Create reusable transporter using environment variables
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: parseInt(process.env.SMTP_PORT) || 465,
-  secure: true,
+  port: parseInt(process.env.SMTP_PORT) || 587,
+  secure: false,
   auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 // Verify transporter connection
@@ -41,7 +44,7 @@ function sendEmail(req, user, callback) {
         return callback(err);
       } else {
         const mailOptions = {
-          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          from: process.env.SMTP_FROM || process.env.MAIL_USER,
           to: user.email,
           subject: "Hi " + user.name + ", Welcome greeting from Pareek Samaj",
           text: "Hello " + user.name,
@@ -97,7 +100,7 @@ function sendStaffInviteEmail(staffData) {
         console.log("[sendStaffInviteEmail] Template rendered successfully, length:", html.length);
 
         const mailOptions = {
-          from: process.env.SMTP_FROM || process.env.SMTP_USER,
+          from: process.env.SMTP_FROM || process.env.MAIL_USER,
           to: email,
           subject: `Welcome to Pareek Samaj - Your Account Has Been Created`,
           text: `Hello ${fullName},\n\nYou have been invited to join Pareek Samaj as ${role}.\n\nYour login credentials:\nEmail: ${email}\nTemporary Password: ${tempPassword}\n\nPlease login at: http://15.207.87.131/admin/login\n\nPlease change your password after first login.\n\nRegards,\nPareek Samaj Team`,
