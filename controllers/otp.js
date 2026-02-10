@@ -1,11 +1,7 @@
-const jwt = require("jsonwebtoken");
-const SMS_URL = "https://businesssms.co.in/SMSV1/SubmitSMS";
-const AUTH_URL = "https://businesssms.co.in/AuthTokenV1/AuthToken";
 const sendMessage = require("../services/send-message");
+const smsService = require("../services/api");
 const User = require("../models/user");
 const Usersotps = require("../models/otp");
-
-const axios = require("axios");
 
 exports.verifyMobile = async (req, res, next) => {
   try {
@@ -48,7 +44,7 @@ exports.verifyMobile = async (req, res, next) => {
                   if (err) {
                     return res.status(400).send(err);
                   }
-                  let sendotp = await SendOTP(insertotp);
+                  let sendotp = await smsService.sendOTP(insertotp.phone, insertotp.otp);
                   if (sendotp.status) {
                     res
                       .status(200)
@@ -77,7 +73,7 @@ exports.verifyMobile = async (req, res, next) => {
                   return res.status(400).send(err);
                 }
                 if (userOTP) {
-                  let sendotp = await SendOTP(userOTP);
+                  let sendotp = await smsService.sendOTP(userOTP.phone, userOTP.otp);
                   if (sendotp.status) {
                     res
                       .status(200)
@@ -110,48 +106,6 @@ exports.verifyMobile = async (req, res, next) => {
         Object.assign({ message: "Failed to get OTP.." }, { status: false }),
       );
   }
-};
-const SendOTP = (userdata) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      let params = {
-        userID: config.loginCredentials.userID,
-        password: config.loginCredentials.password,
-      };
-      axios
-        .get(AUTH_URL, {
-          params,
-        })
-        .then(function (response) {
-          let body = {
-            phNo: userdata.phone,
-            text: `${userdata.otp} is the OTP For Logging into your Pareek samaj account.Keep the OTP safe. We will never call to ask for your OTP.-Pareek samaj`,
-            senderID: config.otpNotification.senderID,
-            templateId: config.otpNotification.templateId,
-          };
-
-          const headers = {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${response.data.TxnOutcome}`,
-          };
-          axios
-            .post(SMS_URL, body, {
-              headers: headers,
-            })
-            .then(function (response) {
-              resolve({ status: true });
-            })
-            .catch(function (error) {
-              resolve({ status: false });
-            });
-        })
-        .catch(function (error) {
-          resolve({ status: false });
-        });
-    } catch (error) {
-      reject({ status: false });
-    }
-  });
 };
 
 exports.verifyOtp = async (req, res, next) => {
