@@ -64,17 +64,13 @@ const sendSMS = async (phone, text, templateId, senderId = null) => {
     const token = await getAuthToken();
 
     const payload = {
-      SMSContent: [
-        {
-          PhNo: phone.startsWith("91") ? phone : `91${phone}`,
-          Text: text,
-          SenderID: senderId || process.env.SMS_SENDER_ID,
-          DlrUrl: "",
-          ScheduleAt: "",
-          PE: process.env.SMS_PE_ID || "1001512283021871019",
-          TemplateId: templateId,
-        },
-      ],
+      PhNo: phone.startsWith("91") ? phone : `91${phone}`,
+      Text: text,
+      SenderID: senderId || process.env.SMS_SENDER_ID,
+      DlrUrl: "",
+      ScheduleAt: "",
+      PE: process.env.SMS_PE_ID || "1001512283021871019",
+      TemplateId: templateId,
     };
 
     console.log("[SMS] Sending to:", phone, "Template:", templateId);
@@ -100,7 +96,8 @@ const sendSMS = async (phone, text, templateId, senderId = null) => {
  * @param {string} otp - OTP code
  */
 exports.sendOTP = async (phone, otp) => {
-  const text = `${otp} ${process.env.OTP_SMS_TEXT || "is your OTP for Pareek Samaj App. Do not share with anyone."}`;
+  // DLT Template: {#var#} is the OTP For Logging into your Pareek samaj account.Keep the OTP safe. We will never call to ask for your OTP.-Pareek samaj
+  const text = `${otp} is the OTP For Logging into your Pareek samaj account.Keep the OTP safe. We will never call to ask for your OTP.-Pareek samaj`;
   const templateId = process.env.OTP_TEMPLATE_ID || "1007721507947005142";
   return sendSMS(phone, text, templateId);
 };
@@ -110,7 +107,8 @@ exports.sendOTP = async (phone, otp) => {
  * @param {string} phone - Phone number
  */
 exports.signupnotification = async (phone) => {
-  const text = process.env.SIGNUP_SMS_TEXT || "Welcome to Pareek Samaj App! Thank you for signing up.";
+  // DLT Template: Thank you for submitting your details. Our experts are validating your sign up details we will notify you when your account is active -Pareek samaj
+  const text = "Thank you for submitting your details. Our experts are validating your sign up details we will notify you when your account is active -Pareek samaj";
   const templateId = process.env.SIGNUP_TEMPLATE_ID;
 
   if (!templateId) {
@@ -126,21 +124,23 @@ exports.signupnotification = async (phone) => {
  * @param {string} phone - Phone number
  */
 exports.verifiednotification = async (phone) => {
-  const text = process.env.VERIFIED_SMS_TEXT || "Congratulations! Your account details have been verified. Please login into Pareek Samaj App to enjoy amazing services.";
+  // DLT Template: Congratulations! Your account details have been verified Please login into Pareek samaj App to enjoy amazing services
+  const text = "Congratulations! Your account details have been verified Please login into Pareek samaj App to enjoy amazing services";
   const templateId = process.env.VERIFIED_TEMPLATE_ID || "1007757185609678786";
   return sendSMS(phone, text, templateId);
 };
 
 /**
- * Send account not verified notification
+ * Send account rejected notification
  * @param {string} phone - Phone number
  */
 exports.notverifiednotification = async (phone) => {
-  const text = process.env.NOT_VERIFIED_SMS_TEXT || "Your account verification is pending. Please complete verification to access all features.";
+  // DLT Template: Your details have been rejected, as they haven't met the standard practices. You can sign up again with valid details to use the Pareek samaj App
+  const text = "Your details have been rejected, as they haven't met the standard practices. You can sign up again with valid details to use the Pareek samaj App";
   const templateId = process.env.NOT_VERIFIED_TEMPLATE_ID;
 
   if (!templateId) {
-    console.log("[SMS] Not verified template ID not configured, skipping SMS");
+    console.log("[SMS] Rejected template ID not configured, skipping SMS");
     return { status: true };
   }
 
@@ -153,7 +153,8 @@ exports.notverifiednotification = async (phone) => {
  * @param {string} otp - OTP code
  */
 exports.forgetPasswordNotification = async (phone, otp) => {
-  const text = `${otp} ${process.env.OTP_SMS_TEXT || "is your OTP for password reset on Pareek Samaj App. Do not share with anyone."}`;
+  // DLT Template: {#var#} is the OTP For Logging into your Pareek samaj account.Keep the OTP safe. We will never call to ask for your OTP.-Pareek samaj
+  const text = `${otp} is the OTP For Logging into your Pareek samaj account.Keep the OTP safe. We will never call to ask for your OTP.-Pareek samaj`;
   const templateId = process.env.OTP_TEMPLATE_ID || "1007721507947005142";
   return sendSMS(phone, text, templateId);
 };
@@ -161,3 +162,9 @@ exports.forgetPasswordNotification = async (phone, otp) => {
 // Export helper functions for direct use
 exports.getAuthToken = getAuthToken;
 exports.sendSMS = sendSMS;
+
+// Test helper to clear token cache
+exports._clearTokenCache = () => {
+  cachedToken = null;
+  tokenExpiry = null;
+};
