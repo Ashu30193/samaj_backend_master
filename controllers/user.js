@@ -125,32 +125,35 @@ exports.resetUserPasswordWithEmailOtp = (req, res) => {
   }
 };
 
-exports.verifyOtpForResetPassword = (req, res) => {
+exports.verifyOtpForResetPassword = async (req, res) => {
   const { mobileNumber, password, otp } = req.body;
   if (mobileNumber && password && otp) {
-    User.findOne({ phone: mobileNumber })
-      .then((info) => {
-        if (info && otp === info.resetPasswordOtp) {
-          User.updateOne({ _id: info._id }, { password, resetPasswordOtp: null })
-            .then((resp) => {
-              if (resp.acknowledged && resp.matchedCount > 0) {
-                res.status(200).send({ status: true, message: "Password updated successfully" });
-              } else {
-                res.status(500).send({ message: "Internal Server Error!" });
-              }
-            })
-            .catch(() =>
-              res.status(500).send({ message: "Internal Server Error!" }),
-            );
+    try {
+      const info = await User.findOne({ phone: mobileNumber }).select('+resetPasswordOtp');
+      if (info && otp === info.resetPasswordOtp) {
+        // Hash password manually since updateOne middleware may not trigger
+        const bcrypt = require('bcryptjs');
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const resp = await User.updateOne(
+          { _id: info._id },
+          { password: hashedPassword, resetPasswordOtp: null }
+        );
+
+        if (resp.acknowledged && resp.matchedCount > 0) {
+          res.status(200).send({ status: true, message: "Password updated successfully" });
         } else {
-          res.status(400).send({ messager: "User or Otp info not found" });
+          res.status(500).send({ message: "Internal Server Error!" });
         }
-      })
-      .catch(() => {
-        res.status(500).send({ message: "Internal Server Error!" });
-      });
+      } else {
+        res.status(400).send({ message: "User or OTP info not found" });
+      }
+    } catch (error) {
+      console.log("verifyOtpForResetPassword error:", error);
+      res.status(500).send({ message: "Internal Server Error!" });
+    }
   } else {
-    res.status(400).send({ message: "Please enter the all fields" });
+    res.status(400).send({ message: "Please enter all fields" });
   }
 };
 
