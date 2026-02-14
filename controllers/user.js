@@ -97,7 +97,7 @@ exports.resetUserPasswordWithEmailOtp = (req, res) => {
             .then((response) => {
               User.updateOne({ _id: info._id }, { resetPasswordOtp: OTP })
                 .then((resp) => {
-                  if (resp.ok === 1) {
+                  if (resp.acknowledged && resp.matchedCount > 0) {
                     res.status(200).send({ status: true, message: "OTP sent successfully" });
                   } else {
                     res.status(500).send({ message: "Internal Server Error!" });
@@ -133,7 +133,7 @@ exports.verifyOtpForResetPassword = (req, res) => {
         if (info && otp === info.resetPasswordOtp) {
           User.updateOne({ _id: info._id }, { password, resetPasswordOtp: null })
             .then((resp) => {
-              if (resp.ok === 1) {
+              if (resp.acknowledged && resp.matchedCount > 0) {
                 res.status(200).send({ status: true, message: "Password updated successfully" });
               } else {
                 res.status(500).send({ message: "Internal Server Error!" });
