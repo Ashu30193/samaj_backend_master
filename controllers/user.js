@@ -25,7 +25,7 @@ const Role = require("../models/role");
 const uploadFiles = require("../services/upload-files");
 const Post = require("../models/post");
 const DeviceToken = require("../models/devicetokens");
-const { uploadImage } = require("../services/upload-files");
+const { uploadImage, upload } = require("../services/upload-files");
 const {
   signupnotification,
   forgetPasswordNotification,
@@ -691,23 +691,34 @@ exports.updatePassword = (req, res) => {
 };
 
 exports.uploadProfileImage = async (req, res) => {
-  let imageFile = req.files.image ? req.files.image : null;
+  let imageFile = req.files && req.files.image ? req.files.image : null;
   if (imageFile) {
-    const image = await uploadImage(imageFile.data, imageFile.name, "profile");
-    if (!image) {
-      res.status(400).send({ message: "Profile image not updated!" });
-    }
+    try {
+      // Use tempFilePath for express-fileupload with useTempFiles: true
+      const tempPath = imageFile.tempFilePath || imageFile.path;
+      console.log("[Profile Upload] Uploading image:", imageFile.name, "from:", tempPath);
 
-    User.updateOne(
-      { _id: req.user._id },
-      { profile_url: image },
-      (userError) => {
-        if (userError) {
-          res.status(400).send(err);
-        }
-        return res.status(200).send({ image });
-      },
-    );
+      const image = await upload(tempPath, imageFile.name, "profile");
+      if (!image) {
+        return res.status(400).send({ message: "Profile image not updated!" });
+      }
+      console.log("[Profile Upload] Image uploaded:", image);
+
+      User.updateOne(
+        { _id: req.user._id },
+        { profile_url: image },
+        (userError) => {
+          if (userError) {
+            console.error("[Profile Upload] DB update error:", userError);
+            return res.status(400).send(userError);
+          }
+          return res.status(200).send({ image });
+        },
+      );
+    } catch (uploadError) {
+      console.error("[Profile Upload] Upload error:", uploadError);
+      return res.status(500).send({ message: "Failed to upload image", error: uploadError.message });
+    }
   } else {
     res.status(400).send({ message: "Please attach the file." });
   }
