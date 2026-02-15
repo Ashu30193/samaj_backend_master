@@ -1,7 +1,7 @@
 const Category = require("../models/category");
 const _ = require("lodash");
 const Event = require("../models/event");
-const { uploadeventsImage } = require("../services/upload-files");
+const { uploadeventsImage, upload } = require("../services/upload-files");
 
 const convertParams = (model, params) => {
   const finalQuery = {};
@@ -123,23 +123,29 @@ exports.createAdminEvent = async function (req, res) {
   if (req.files == null) {
     return res.status(404).send({ message: "No Image Found." });
   } else {
-    let location = req.files.eventImage.data;
-    const originalFileName = req.files.eventImage.name;
-    if (req.files && req.files.eventImage) {
-      const data = await uploadeventsImage(
-        location,
-        originalFileName,
-        "events",
-      );
-      body.image = data.url;
+    try {
+      const eventImage = req.files.eventImage;
+      // Use tempFilePath for express-fileupload with useTempFiles: true
+      const tempPath = eventImage.tempFilePath || eventImage.path;
+      const originalFileName = eventImage.name;
+      console.log("[Event CreateAdmin] Uploading image:", originalFileName, "from:", tempPath);
+
+      const imageUrl = await upload(tempPath, originalFileName, "events");
+      body.image = imageUrl;
+      console.log("[Event CreateAdmin] Image uploaded:", imageUrl);
+
+      Event.create(body, (err, result) => {
+        if (err) {
+          console.error("[Event CreateAdmin] Error:", err);
+          res.status(400);
+          res.send(err);
+        }
+        res.send(result);
+      });
+    } catch (uploadError) {
+      console.error("[Event CreateAdmin] Upload error:", uploadError);
+      res.status(500).send({ message: "Failed to upload image", error: uploadError.message });
     }
-    Event.create(body, (err, result) => {
-      if (err) {
-        res.status(400);
-        res.send(err);
-      }
-      res.send(result);
-    });
   }
 };
 exports.update = function (req, res) {

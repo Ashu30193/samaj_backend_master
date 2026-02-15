@@ -128,19 +128,29 @@ exports.createNewsByAdmin = async (req, res) => {
   if (req.files == null) {
     return res.status(404).send({ message: "No Image Found." });
   } else {
-    let location = req.files.newsImage.data;
-    const originalFileName = req.files.newsImage.name;
-    if (req.files && req.files.newsImage) {
-      const data = await uploadnewsImage(location, originalFileName, "news");
-      body.image = data.url;
+    try {
+      const newsImage = req.files.newsImage;
+      // Use tempFilePath for express-fileupload with useTempFiles: true
+      const tempPath = newsImage.tempFilePath || newsImage.path;
+      const originalFileName = newsImage.name;
+      console.log("[News CreateByAdmin] Uploading image:", originalFileName, "from:", tempPath);
+
+      const imageUrl = await upload(tempPath, originalFileName, "news");
+      body.image = imageUrl;
+      console.log("[News CreateByAdmin] Image uploaded:", imageUrl);
+
+      News.create(body, (err, post) => {
+        if (err) {
+          console.error("[News CreateByAdmin] Error:", err);
+          res.status(400);
+          res.send(err);
+        }
+        res.send(post);
+      });
+    } catch (uploadError) {
+      console.error("[News CreateByAdmin] Upload error:", uploadError);
+      res.status(500).send({ message: "Failed to upload image", error: uploadError.message });
     }
-    News.create(body, (err, post) => {
-      if (err) {
-        res.status(400);
-        res.send(err);
-      }
-      res.send(post);
-    });
   }
 };
 
