@@ -1,6 +1,7 @@
 const _ = require("lodash");
 const Product = require("../models/product");
-const { uploadproductImage, deleteFile } = require("../services/upload-files");
+const { uploadproductImage, deleteFile, upload } = require("../services/upload-files");
+const fs = require("fs");
 const formidable = require("formidable");
 
 const convertParams = (model, params) => {
@@ -119,14 +120,15 @@ exports.create = async function (req, res) {
         console.log("[Product Create] Multiple images:", files.image.length);
         for (let i = 0; i < files.image.length; i++) {
           try {
-            const result = await uploadproductImage(
-              files.image[i].data,
-              "products",
-              files.image[i].name,
-            );
-            console.log("[Product Create] Image", i, "upload result:", result);
-            if (result && result.url) {
-              arr.push(result.url);
+            const imageFile = files.image[i];
+            // Use tempFilePath if available (useTempFiles: true), otherwise use data
+            const filePath = imageFile.tempFilePath;
+            console.log("[Product Create] Image", i, "tempFilePath:", filePath);
+
+            const url = await upload(filePath, imageFile.name, "products");
+            console.log("[Product Create] Image", i, "upload result:", url);
+            if (url) {
+              arr.push(url);
             }
           } catch (uploadErr) {
             console.error("[Product Create] Image", i, "upload failed:", uploadErr);
@@ -135,16 +137,15 @@ exports.create = async function (req, res) {
         body.image = arr;
       } else {
         const imageFile = Array.isArray(files.image) ? files.image[0] : files.image;
-        console.log("[Product Create] Single image:", imageFile.name, "size:", imageFile.data?.length || imageFile.size);
+        // Use tempFilePath if available (useTempFiles: true), otherwise use data
+        const filePath = imageFile.tempFilePath;
+        console.log("[Product Create] Single image:", imageFile.name, "tempFilePath:", filePath, "size:", imageFile.size);
+
         try {
-          const result = await uploadproductImage(
-            imageFile.data,
-            "products",
-            imageFile.name,
-          );
-          console.log("[Product Create] Image upload result:", result);
-          if (result && result.url) {
-            body.image = result.url;
+          const url = await upload(filePath, imageFile.name, "products");
+          console.log("[Product Create] Image upload result:", url);
+          if (url) {
+            body.image = url;
           }
         } catch (uploadErr) {
           console.error("[Product Create] Image upload failed:", uploadErr);
