@@ -9,7 +9,12 @@
       "Bash(git commit:*)",
       "Bash(test:*)",
       "Bash(node app.js:*)",
-      "Bash(npm install)"
+      "Bash(npm install)",
+      "Bash(ssh -i \"Pareeksamaj.pem\" -o StrictHostKeyChecking=no ubuntu@ec2-15-207-87-131.ap-south-1.compute.amazonaws.com \"cd /home/ubuntu/pareeksamaj-backend && sed -i ''s/SMTP_PASS=bvvk xkaf xroa fcey/SMTP_PASS=\"\"bvvk xkaf xroa fcey\"\"/'' .env && grep SMTP .env\")",
+      "Bash(ssh:*)",
+      "Bash(npm run build:*)",
+      "Bash(NODE_OPTIONS=--openssl-legacy-provider npm run build:*)",
+      "Bash(scp:*)"
     ],
     "deny": [],
     "ask": []

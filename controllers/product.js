@@ -104,34 +104,54 @@ exports.findOne = function (req, res) {
 
 exports.create = async function (req, res) {
   try {
+    console.log("[Product Create] Request received");
+    console.log("[Product Create] Body keys:", Object.keys(req.body || {}));
+    console.log("[Product Create] Files:", req.files ? Object.keys(req.files) : "No files");
+    console.log("[Product Create] User:", req.user ? req.user._id : "No user");
+
     const { body, user, files } = req;
     let arr = [];
 
     // Handle image upload if files are provided
     if (files && files.image) {
+      console.log("[Product Create] Processing image upload...");
       if (Array.isArray(files.image) && files.image.length > 1) {
+        console.log("[Product Create] Multiple images:", files.image.length);
         for (let i = 0; i < files.image.length; i++) {
-          const result = await uploadproductImage(
-            files.image[i].data,
-            "products",
-            files.image[i].name,
-          );
-          if (result && result.url) {
-            arr.push(result.url);
+          try {
+            const result = await uploadproductImage(
+              files.image[i].data,
+              "products",
+              files.image[i].name,
+            );
+            console.log("[Product Create] Image", i, "upload result:", result);
+            if (result && result.url) {
+              arr.push(result.url);
+            }
+          } catch (uploadErr) {
+            console.error("[Product Create] Image", i, "upload failed:", uploadErr);
           }
         }
         body.image = arr;
       } else {
         const imageFile = Array.isArray(files.image) ? files.image[0] : files.image;
-        const result = await uploadproductImage(
-          imageFile.data,
-          "products",
-          imageFile.name,
-        );
-        if (result && result.url) {
-          body.image = result.url;
+        console.log("[Product Create] Single image:", imageFile.name, "size:", imageFile.data?.length || imageFile.size);
+        try {
+          const result = await uploadproductImage(
+            imageFile.data,
+            "products",
+            imageFile.name,
+          );
+          console.log("[Product Create] Image upload result:", result);
+          if (result && result.url) {
+            body.image = result.url;
+          }
+        } catch (uploadErr) {
+          console.error("[Product Create] Image upload failed:", uploadErr);
         }
       }
+    } else {
+      console.log("[Product Create] No image provided");
     }
 
     if (user) {
@@ -139,10 +159,12 @@ exports.create = async function (req, res) {
       body.updatedBy = user._id;
     }
 
+    console.log("[Product Create] Creating product with body:", JSON.stringify(body, null, 2));
     const data = await Product.create(body);
+    console.log("[Product Create] Product created successfully:", data._id);
     res.status(201).send(data);
   } catch (err) {
-    console.error("Product create error:", err);
+    console.error("[Product Create] Error:", err);
     res.status(400).send({ message: err.message || "Failed to create product", error: err });
   }
 };
