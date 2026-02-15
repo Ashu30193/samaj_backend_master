@@ -34,10 +34,13 @@ exports.createOrder = async (req, res) => {
     }
 
     // Create Razorpay order
+    // Receipt must be max 40 characters - using short format
+    const shortUserId = userId.toString().slice(-8);
+    const timestamp = Date.now().toString().slice(-8);
     const options = {
       amount: plan.price * 100, // Amount in paise
       currency: "INR",
-      receipt: `receipt_${userId}_${Date.now()}`,
+      receipt: `rcpt_${shortUserId}_${timestamp}`,
       notes: {
         userId: userId.toString(),
         planId: planId.toString(),
