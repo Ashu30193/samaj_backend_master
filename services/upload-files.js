@@ -156,9 +156,23 @@ exports.upload = async (filePath, originalFileName, modelName) => {
   });
 };
 
-exports.uploadproductImage = (base64, folder, fileName) => {
+exports.uploadproductImage = (imageData, folder, fileName) => {
   return new Promise((resolve, reject) => {
-    const base64Data = new Buffer.from(base64, "base64");
+    // Handle both Buffer (from express-fileupload) and base64 string
+    let uploadData;
+    if (Buffer.isBuffer(imageData)) {
+      // Already a Buffer from express-fileupload
+      uploadData = imageData;
+      console.log("[uploadproductImage] Using raw Buffer, size:", imageData.length);
+    } else if (typeof imageData === 'string') {
+      // Base64 string
+      uploadData = Buffer.from(imageData, "base64");
+      console.log("[uploadproductImage] Converted from base64, size:", uploadData.length);
+    } else {
+      console.log("[uploadproductImage] Unknown data type:", typeof imageData);
+      return reject(new Error("Invalid image data type"));
+    }
+
     const name = uuidv1() + "/" + `${fileName || ""}`;
     const params = {
       Bucket: process.env.AWS_BUCKET_NAME,
@@ -171,10 +185,12 @@ exports.uploadproductImage = (base64, folder, fileName) => {
       params,
     });
 
-    s3.upload({ Body: base64Data }, (err, data) => {
+    s3.upload({ Body: uploadData }, (err, data) => {
       if (err) {
+        console.log("[uploadproductImage] S3 upload error:", err);
         return reject(err);
       }
+      console.log("[uploadproductImage] S3 upload success:", data.Location);
       return resolve({
         url: data.Location,
         name: fileName || undefined,
