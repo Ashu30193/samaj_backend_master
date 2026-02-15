@@ -45,6 +45,7 @@ const business = require("./routes/business");
 const enableDisableUser = require("./routes/user-enable-disable");
 const otp = require("./routes/otp");
 const serviceUser = require("./routes/service-user");
+const payment = require("./routes/payment");
 app.use(cors({
   origin: ["http://localhost:3000", "http://localhost:8000", "http://15.207.87.131", "http://pareeksamaj.in", "http://www.pareeksamaj.in", "https://pareeksamaj.in", "https://www.pareeksamaj.in"],
   credentials: true,
@@ -107,6 +108,7 @@ app.use("/business", business);
 app.use("/enableDisableUser", enableDisableUser);
 app.use("/otp", otp);
 app.use("/service-user", serviceUser);
+app.use("/payment", payment);
 // if error is not an instanceOf APIError, convert it.
 app.use(error.converter);
 
