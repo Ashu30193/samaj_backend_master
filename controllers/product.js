@@ -103,38 +103,48 @@ exports.findOne = function (req, res) {
 };
 
 exports.create = async function (req, res) {
-  const { body, user, files } = req;
-  let arr = [];
-  if (files && files.image && files.image.length > 1) {
-    for (i = 0; i < files.image.length; i++) {
-      var { url } = await uploadproductImage(
-        files.image[i].data,
-        "products",
-        files.image[i].name,
-      );
-      arr.push(url);
-    }
-    body.image = arr;
-  } else {
-    var { url } = await uploadproductImage(
-      files.image.data,
-      "products",
-      files.image.name,
-    );
-    body.image = url;
-  }
+  try {
+    const { body, user, files } = req;
+    let arr = [];
 
-  if (user) {
-    body.createdBy = user._id;
-    body.updatedBy = user._id;
-  }
-  Product.create(body, function (err, data) {
-    if (err) {
-      res.status(400);
-      res.send(err);
+    // Handle image upload if files are provided
+    if (files && files.image) {
+      if (Array.isArray(files.image) && files.image.length > 1) {
+        for (let i = 0; i < files.image.length; i++) {
+          const result = await uploadproductImage(
+            files.image[i].data,
+            "products",
+            files.image[i].name,
+          );
+          if (result && result.url) {
+            arr.push(result.url);
+          }
+        }
+        body.image = arr;
+      } else {
+        const imageFile = Array.isArray(files.image) ? files.image[0] : files.image;
+        const result = await uploadproductImage(
+          imageFile.data,
+          "products",
+          imageFile.name,
+        );
+        if (result && result.url) {
+          body.image = result.url;
+        }
+      }
     }
-    res.send(data);
-  });
+
+    if (user) {
+      body.createdBy = user._id;
+      body.updatedBy = user._id;
+    }
+
+    const data = await Product.create(body);
+    res.status(201).send(data);
+  } catch (err) {
+    console.error("Product create error:", err);
+    res.status(400).send({ message: err.message || "Failed to create product", error: err });
+  }
 };
 
 exports.update = async function (req, res) {
