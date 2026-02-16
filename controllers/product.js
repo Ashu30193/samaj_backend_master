@@ -245,18 +245,67 @@ exports.update = async function (req, res) {
   }
 };
 
-exports.delete = function (req, res) {
-  const { params } = req;
-  if (params.id) {
-    Product.deleteOne({ _id: params.id }, function (err, data) {
-      if (err) {
-        res.status(400);
-        res.send(err);
-      }
-      res.send(data);
+exports.delete = async function (req, res) {
+  const { params, user } = req;
+
+  if (!params.id) {
+    return res.status(400).send({
+      success: false,
+      message: "Product ID is required"
     });
-  } else {
-    res.status(400);
-    res.send({ message: "Id not found!" });
+  }
+
+  try {
+    // Find the product first
+    const product = await Product.findOne({ _id: params.id });
+
+    if (!product) {
+      return res.status(404).send({
+        success: false,
+        message: "Product not found"
+      });
+    }
+
+    // Verify user owns the product
+    if (product.createdBy.toString() !== user._id.toString()) {
+      return res.status(403).send({
+        success: false,
+        message: "Unauthorized - You can only delete your own products"
+      });
+    }
+
+    // Delete associated images from storage
+    if (product.image && product.image.length > 0) {
+      console.log("[Product Delete] Deleting associated images:", product.image.length);
+      for (const imageUrl of product.image) {
+        try {
+          // Extract S3 key from URL
+          if (imageUrl && imageUrl.includes('amazonaws.com/')) {
+            const key = imageUrl.split('amazonaws.com/')[1];
+            await deleteFile(key);
+            console.log("[Product Delete] Deleted image:", key);
+          }
+        } catch (imgErr) {
+          console.error("[Product Delete] Failed to delete image:", imageUrl, imgErr.message);
+          // Continue even if image deletion fails
+        }
+      }
+    }
+
+    // Delete the product
+    await Product.deleteOne({ _id: params.id });
+    console.log("[Product Delete] Product deleted successfully:", params.id);
+
+    return res.status(200).send({
+      success: true,
+      message: "Product deleted successfully"
+    });
+  } catch (err) {
+    console.error("[Product Delete] Error:", err);
+    return res.status(500).send({
+      success: false,
+      message: "Failed to delete product",
+      error: err.message
+    });
   }
 };
