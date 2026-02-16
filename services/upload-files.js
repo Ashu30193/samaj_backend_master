@@ -3,6 +3,7 @@ const path = require("path");
 const AWS = require("aws-sdk");
 const ffmpeg = require("fluent-ffmpeg");
 const { v1: uuidv1 } = require("uuid");
+const { processProfileImage, validateImage } = require("./image-processor");
 
 ffmpeg.setFfmpegPath("/usr/bin/ffmpeg");
 ffmpeg.setFfprobePath("/usr/bin/ffprobe");
@@ -318,4 +319,122 @@ exports.uploadImage = async (data, originalFileName, modelName) => {
       resolve(data.Location);
     });
   });
+};
+
+/**
+ * Upload a buffer to S3 or local storage
+ * @param {Buffer} buffer - The image buffer to upload
+ * @param {string} fileName - The file name (without extension)
+ * @param {string} modelName - The model/folder name
+ * @returns {Promise<string>} - The URL of the uploaded file
+ */
+const uploadBuffer = async (buffer, fileName, modelName) => {
+  return new Promise((resolve, reject) => {
+    // FOR LOCALHOST: Store files locally
+    if (IS_LOCALHOST) {
+      console.log("[UploadBuffer] Localhost mode - storing file locally");
+
+      // Create model subdirectory if it doesn't exist
+      const modelDir = path.join(UPLOAD_DIR, modelName);
+      if (!fs.existsSync(modelDir)) {
+        fs.mkdirSync(modelDir, { recursive: true });
+      }
+
+      const destinationPath = path.join(modelDir, fileName);
+      const publicUrl = `/uploads/${modelName}/${fileName}`;
+
+      fs.writeFile(destinationPath, buffer, (err) => {
+        if (err) {
+          console.log("[UploadBuffer] Local file save error:", err);
+          reject(err);
+          return;
+        }
+        console.log("[UploadBuffer] Local file saved successfully:", publicUrl);
+        resolve(publicUrl);
+      });
+
+      return;
+    }
+
+    // FOR PRODUCTION: Upload to S3
+    console.log("[UploadBuffer] Production mode - uploading to S3");
+
+    const s3 = new AWS.S3({
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      params: {
+        Bucket: process.env.AWS_BUCKET_NAME,
+        Key: `${modelName}/${fileName}`,
+        ContentType: 'image/jpeg'
+      },
+    });
+
+    s3.upload({ Body: buffer }, function (err, data) {
+      if (err) {
+        console.log("[UploadBuffer] S3 upload error:", err);
+        reject(err);
+        return;
+      }
+      console.log("[UploadBuffer] S3 upload success:", data.Location);
+      resolve(data.Location);
+    });
+  });
+};
+
+/**
+ * Upload profile image with multiple sizes
+ * @param {string} filePath - Path to the temp file
+ * @param {Object} file - The file object with name, mimetype, size
+ * @returns {Promise<Object>} - Object containing URLs for each size
+ */
+exports.uploadProfileImageMultiSize = async (filePath, file) => {
+  try {
+    // Validate the image
+    const validation = validateImage(file);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+
+    console.log("[ProfileUpload] Processing image:", file.name);
+
+    // Process image into multiple sizes
+    const processedImages = await processProfileImage(filePath);
+
+    // Generate a unique base name for all sizes
+    const baseName = uuidv1();
+    const modelName = "profile";
+
+    // Upload each size
+    const urls = {};
+    const uploadPromises = Object.entries(processedImages).map(async ([sizeName, buffer]) => {
+      const fileName = `${baseName}_${sizeName}.jpg`;
+      const url = await uploadBuffer(buffer, fileName, modelName);
+      urls[sizeName] = url;
+      console.log(`[ProfileUpload] Uploaded ${sizeName}:`, url);
+    });
+
+    await Promise.all(uploadPromises);
+
+    // Delete the temp file
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error("[ProfileUpload] Error deleting temp file:", err);
+      }
+    });
+
+    console.log("[ProfileUpload] All sizes uploaded successfully:", urls);
+
+    return {
+      profile_url: urls.large, // Default profile_url uses large size for backward compatibility
+      profile_images: urls
+    };
+  } catch (error) {
+    // Delete the temp file on error
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error("[ProfileUpload] Error deleting temp file on error:", err);
+      }
+    });
+    throw error;
+  }
 };

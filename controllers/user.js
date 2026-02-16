@@ -25,7 +25,7 @@ const Role = require("../models/role");
 const uploadFiles = require("../services/upload-files");
 const Post = require("../models/post");
 const DeviceToken = require("../models/devicetokens");
-const { uploadImage, upload } = require("../services/upload-files");
+const { uploadImage, upload, uploadProfileImageMultiSize } = require("../services/upload-files");
 const {
   signupnotification,
   forgetPasswordNotification,
@@ -697,22 +697,31 @@ exports.uploadProfileImage = async (req, res) => {
       // Use tempFilePath for express-fileupload with useTempFiles: true
       const tempPath = imageFile.tempFilePath || imageFile.path;
       console.log("[Profile Upload] Uploading image:", imageFile.name, "from:", tempPath);
+      console.log("[Profile Upload] File size:", imageFile.size, "bytes, mimetype:", imageFile.mimetype);
 
-      const image = await upload(tempPath, imageFile.name, "profile");
-      if (!image) {
+      // Use the new multi-size upload function
+      const result = await uploadProfileImageMultiSize(tempPath, imageFile);
+      if (!result || !result.profile_url) {
         return res.status(400).send({ message: "Profile image not updated!" });
       }
-      console.log("[Profile Upload] Image uploaded:", image);
+      console.log("[Profile Upload] Images uploaded:", result);
 
+      // Update user with both profile_url (for backward compatibility) and profile_images
       User.updateOne(
         { _id: req.user._id },
-        { profile_url: image },
+        {
+          profile_url: result.profile_url,
+          profile_images: result.profile_images
+        },
         (userError) => {
           if (userError) {
             console.error("[Profile Upload] DB update error:", userError);
             return res.status(400).send(userError);
           }
-          return res.status(200).send({ image });
+          return res.status(200).send({
+            image: result.profile_url,
+            profile_images: result.profile_images
+          });
         },
       );
     } catch (uploadError) {

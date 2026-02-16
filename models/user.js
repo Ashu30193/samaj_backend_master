@@ -43,6 +43,12 @@ const userSchema = new Schema(
       trim: true,
     },
     profile_url: { type: String, valueType: "String" },
+    profile_images: {
+      thumbnail: { type: String },  // 150x150 - for member lists
+      medium: { type: String },     // 500x500 - for matrimony cards
+      large: { type: String },      // 1080x1080 - for profile view
+      original: { type: String },   // Full quality original
+    },
     email: {
       type: String,
       lowercase: true,
