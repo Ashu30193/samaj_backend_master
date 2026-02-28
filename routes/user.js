@@ -25,6 +25,7 @@ router.post(
 );
 
 router.put("/:id", validate, user_controller.updateUser);
+router.delete("/delete", validate, user_controller.deleteAccount);
 router.delete("/:id", validate, user_controller.delete);
 router.post("/login", user_controller.login);
 router.get("/:id/refreshToken", user_controller.createRefreshToken);

@@ -22,6 +22,9 @@ async function validate(req, res, next) {
             if (!user) {
               console.log("[Validate Middleware] User not found");
               return res.status(401).send({ message: "User not found!" });
+            } else if (user.isDeleted) {
+              console.log("[Validate Middleware] User account is deleted:", user._id);
+              return res.status(401).send({ message: "This account has been deleted." });
             } else if (user) {
               console.log("[Validate Middleware] User validated:", user._id);
               req.user = user;

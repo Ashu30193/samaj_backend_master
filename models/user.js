@@ -41,6 +41,17 @@ const userSchema = new Schema(
       type: String,
       valueType: "String",
       trim: true,
+      required: false, // Phone is optional for iOS App Store compliance
+      validate: {
+        validator: function (v) {
+          // If phone is provided, it must be 10 digits
+          if (v && v.length > 0) {
+            return /^\d{10}$/.test(v);
+          }
+          return true; // Empty/undefined is valid
+        },
+        message: "Phone number must be 10 digits",
+      },
     },
     profile_url: { type: String, valueType: "String" },
     profile_images: {
@@ -103,6 +114,11 @@ const userSchema = new Schema(
       isPrivate: { type: Boolean, default: false, valueType: "Boolean" },
     },
     resetPasswordOtp: { type: String },
+
+    // Soft delete fields for account deletion
+    isDeleted: { type: Boolean, default: false },
+    deletedAt: { type: Date, default: null },
+    deletionReason: { type: String, default: null },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

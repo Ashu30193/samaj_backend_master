@@ -386,6 +386,11 @@ exports.login = (req, res, next) => {
     .exec((err, user) => {
       if (err) return next(err);
       if (user) {
+        // Check if account is deleted
+        if (user.isDeleted) {
+          res.status(400);
+          return res.json({ message: "This account has been deleted." });
+        }
         if (user.isActive) {
           if (user.isVerified !== null) {
             if (user.isVerified) {
@@ -921,5 +926,154 @@ exports.isExistingLoginId = async (req, res) => {
   } catch (error) {
     console.log("[isExistingLoginId] Error:", error);
     return res.status(500).send({ message: "Error checking email" });
+  }
+};
+
+/**
+ * Delete user account (soft delete for iOS App Store compliance)
+ * Marks user as deleted and cleans up associated data
+ * @param {*} req - Request object with authenticated user
+ * @param {*} res - Response object
+ */
+exports.deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { reason } = req.body; // Optional deletion reason
+
+    console.log(`[DeleteAccount] Starting account deletion for user: ${userId}`);
+
+    // Import required models for cleanup
+    const Product = require("../models/product");
+    const Business = require("../models/business");
+    const Job = require("../models/job");
+    const Post = require("../models/post");
+    const PostLikes = require("../models/post-likes");
+    const PostComment = require("../models/post-comment");
+    const SavedJob = require("../models/saved-job");
+    const AppliedJob = require("../models/applied-job");
+    const WishList = require("../models/wishlist");
+    const Cart = require("../models/cart");
+
+    // Verify user exists and is not already deleted
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    if (user.isDeleted) {
+      return res.status(400).send({
+        success: false,
+        message: "Account is already deleted"
+      });
+    }
+
+    // Perform cleanup operations in parallel for efficiency
+    const cleanupResults = await Promise.allSettled([
+      // Delete user's products
+      Product.deleteMany({ createdBy: userId }),
+
+      // Delete user's businesses
+      Business.deleteMany({ createdBy: userId }),
+
+      // Delete user's job postings
+      Job.deleteMany({ createdBy: userId }),
+
+      // Remove user from job applicants lists
+      Job.updateMany(
+        { applicants: userId },
+        { $pull: { applicants: userId } }
+      ),
+
+      // Delete user's posts
+      Post.deleteMany({ user: userId }),
+
+      // Delete user's post likes (both given and received)
+      PostLikes.deleteMany({ $or: [{ user: userId }, { post_owner: userId }] }),
+
+      // Delete user's post comments (both given and received)
+      PostComment.deleteMany({ $or: [{ user: userId }, { post_owner: userId }] }),
+
+      // Delete user's saved jobs
+      SavedJob.deleteMany({ userId: userId }),
+
+      // Delete user's applied jobs
+      AppliedJob.deleteMany({ userId: userId }),
+
+      // Delete user's wishlist items
+      WishList.deleteMany({ user: userId }),
+
+      // Delete user's cart items
+      Cart.deleteMany({ user: userId }),
+
+      // Delete user's device tokens (invalidate sessions)
+      DeviceToken.deleteMany({ user: userId }),
+
+      // Delete OTPs associated with user's phone
+      Otp.deleteMany({ phone: user.phone })
+    ]);
+
+    // Log cleanup results for audit
+    const cleanupSummary = {
+      products: cleanupResults[0],
+      businesses: cleanupResults[1],
+      jobs: cleanupResults[2],
+      jobApplications: cleanupResults[3],
+      posts: cleanupResults[4],
+      postLikes: cleanupResults[5],
+      postComments: cleanupResults[6],
+      savedJobs: cleanupResults[7],
+      appliedJobs: cleanupResults[8],
+      wishlist: cleanupResults[9],
+      cart: cleanupResults[10],
+      deviceTokens: cleanupResults[11],
+      otps: cleanupResults[12]
+    };
+
+    console.log(`[DeleteAccount] Cleanup completed for user ${userId}:`,
+      JSON.stringify(cleanupSummary, null, 2));
+
+    // Soft delete the user account
+    // Mark as deleted with timestamp for 30-day retention before hard delete
+    const deletionTimestamp = new Date();
+    await User.updateOne(
+      { _id: userId },
+      {
+        isDeleted: true,
+        deletedAt: deletionTimestamp,
+        deletionReason: reason || "User requested account deletion",
+        isActive: false,
+        isMatrimonialActive: false,
+        // Clear sensitive data immediately
+        password: null,
+        resetPasswordOtp: null,
+        // Anonymize profile for privacy
+        profile_url: null,
+        profile_images: {
+          thumbnail: null,
+          medium: null,
+          large: null,
+          original: null
+        }
+      }
+    );
+
+    console.log(`[DeleteAccount] Account soft-deleted successfully for user: ${userId} at ${deletionTimestamp}`);
+
+    return res.status(200).send({
+      success: true,
+      message: "Account deleted successfully",
+      deletedAt: deletionTimestamp
+    });
+
+  } catch (error) {
+    console.error("[DeleteAccount] Error:", error);
+    return res.status(500).send({
+      success: false,
+      message: "Failed to delete account",
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 };
