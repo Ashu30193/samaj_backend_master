@@ -228,9 +228,11 @@ exports.currentUser = (req, res) => {
     User.findById({ _id: req.user._id })
       .populate("role")
       .exec((err, data) => {
-        if (!err) {
-          delete data.password;
-          res.status(200).send(data);
+        if (!err && data) {
+          // Convert to JSON to include virtuals like profileComplete
+          const userData = data.toJSON();
+          delete userData.password;
+          res.status(200).send(userData);
         } else {
           res.status(404).send({ message: "User not found" });
         }
@@ -260,11 +262,13 @@ exports.create = (req, res) => {
                 return res.status(400).send(err);
               }
               if (user) {
+                // Convert to JSON to include virtuals like profileComplete
+                const userData = user.toJSON();
                 const token = jwt.sign(
                   {
                     type: user.role.type === "root" ? "root" : "user",
                     access: ["read", "write"],
-                    data: user,
+                    data: userData,
                   },
                   process.env.JWT_SECRET,
                   {
@@ -274,7 +278,7 @@ exports.create = (req, res) => {
                 const userDetails = {
                   token_type: "Bearer",
                   token,
-                  data: user,
+                  data: userData,
                 };
                 res.status(200);
                 res.send(userDetails);
@@ -305,12 +309,14 @@ exports.update = async function (req, res) {
           res.send(err);
         }
         if (data) {
-          delete data.password;
+          // Convert to JSON to include virtuals like profileComplete
+          const userData = data.toJSON();
+          delete userData.password;
           if (data.isVerified == null) {
             let notification = await signupnotification(body.phone);
           }
           res.status(200);
-          res.send(data);
+          res.send(userData);
         } else {
           res.status(400);
           res.send("User not found !");

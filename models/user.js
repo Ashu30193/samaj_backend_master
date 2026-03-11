@@ -125,6 +125,29 @@ const userSchema = new Schema(
   },
 );
 
+// Virtual field to check if profile is complete
+userSchema.virtual("profileComplete").get(function () {
+  // Check if key profile fields are filled
+  const hasBasicInfo = this.name && this.email;
+  const hasFamilyInfo = this.family?.father || this.family?.grandfather;
+  const hasPersonalInfo = this.dob || this.gender;
+  const hasAddressInfo = this.address?.city || this.address?.state;
+  const hasEducationInfo =
+    this.occupation?.occupation_value ||
+    this.higher_qualification ||
+    this.clan?.clan_value;
+
+  // Profile is complete if user has filled most details
+  return !!(
+    hasBasicInfo &&
+    (hasFamilyInfo || hasPersonalInfo || hasAddressInfo || hasEducationInfo)
+  );
+});
+
+// Ensure virtuals are included when converting to JSON
+userSchema.set("toJSON", { virtuals: true });
+userSchema.set("toObject", { virtuals: true });
+
 userSchema.pre("find", function () {
   this.select("-resetPasswordOtp -password");
 });
