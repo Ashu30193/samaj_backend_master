@@ -2,10 +2,19 @@ const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const User = require("../models/user");
 
+// Select keys based on environment (live keys in production, test keys otherwise)
+const isProduction = process.env.NODE_ENV === "production";
+const RAZORPAY_KEY_ID = isProduction
+  ? process.env.RAZORPAY_KEY_ID
+  : process.env.RAZORPAY_KEY_ID_TEST;
+const RAZORPAY_KEY_SECRET = isProduction
+  ? process.env.RAZORPAY_KEY_SECRET
+  : process.env.RAZORPAY_KEY_SECRET_TEST;
+
 // Initialize Razorpay instance
 const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID_TEST,
-  key_secret: process.env.RAZORPAY_KEY_SECRET_TEST,
+  key_id: RAZORPAY_KEY_ID,
+  key_secret: RAZORPAY_KEY_SECRET,
 });
 
 // Subscription plans
@@ -79,7 +88,7 @@ exports.verifyPayment = async (req, res) => {
     // Verify signature
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET_TEST)
+      .createHmac("sha256", RAZORPAY_KEY_SECRET)
       .update(body.toString())
       .digest("hex");
 
