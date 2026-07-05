@@ -20,7 +20,17 @@ app.use(
     extended: false,
   }),
 );
-app.use(bodyParser.json({ limit: "30mb" }));
+app.use(
+  bodyParser.json({
+    limit: "30mb",
+    // Stash the raw request body so the Razorpay webhook can verify the
+    // signature against the exact bytes Razorpay signed (re-stringifying the
+    // parsed JSON can differ and break verification).
+    verify: (req, res, buf) => {
+      req.rawBody = buf;
+    },
+  }),
+);
 
 // Serve static files from uploads directory (for localhost file storage)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

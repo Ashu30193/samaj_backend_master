@@ -817,11 +817,16 @@ const convertParams = (model, params) => {
     }
   });
   if (params.keyword) {
+    // Escape regex special chars so a stray "(" or "*" in the search box
+    // can't break the query, then match anywhere in the field (substring),
+    // case-insensitive. Includes state so users can search by their state.
+    const safe = String(params.keyword).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const $or = [
-      { name: { $regex: `^${params.keyword}`, $options: "i" } },
-      { email: { $regex: `^${params.keyword}`, $options: "i" } },
-      { phone: { $regex: `^${params.keyword}`, $options: "i" } },
-      { "address.city": { $regex: `^${params.keyword}`, $options: "i" } },
+      { name: { $regex: safe, $options: "i" } },
+      { email: { $regex: safe, $options: "i" } },
+      { phone: { $regex: safe, $options: "i" } },
+      { "address.city": { $regex: safe, $options: "i" } },
+      { "address.state": { $regex: safe, $options: "i" } },
     ];
     finalQuery.find["$or"] = $or;
   }
@@ -833,6 +838,11 @@ exports.matrimonialList = async function (req, res) {
   const filters = convertParams(User, query);
   let checkMatrimonialActive = filters.where;
   checkMatrimonialActive.isMatrimonialActive = true;
+  // Never show the requester their own profile in matrimony listings.
+  // Server-side exclusion so it works regardless of mobile app version.
+  if (req.user && req.user._id) {
+    checkMatrimonialActive._id = { $ne: req.user._id };
+  }
 
   User.find(filters.find)
     .where(checkMatrimonialActive)
@@ -886,6 +896,30 @@ exports.updateMatrimonialStatus = (req, res) => {
     }
   });
 };
+// Remove the user from matrimony: turns the matrimony profile off so they no
+// longer appear in matrimony listings. They can opt back in later (popup shown).
+exports.deleteMatrimonialProfile = (req, res) => {
+  const targetId = req.params.id || req.user._id;
+  User.updateOne(
+    { _id: targetId },
+    {
+      isMatrimonialActive: false,
+      showMatrimonialPopup: true,
+    },
+  ).exec(async (err) => {
+    if (err) {
+      return res
+        .status(400)
+        .send({ message: "Unable to delete the matrimonial profile" });
+    }
+    const userData = await User.findOne({ _id: targetId });
+    res.status(200).send({
+      message: "Matrimonial profile deleted successfully!",
+      userData,
+    });
+  });
+};
+
 exports.editUserPrivateDetails = (req, res) => {
   const { body, user } = req;
   User.updateOne({ _id: user._id }, body)

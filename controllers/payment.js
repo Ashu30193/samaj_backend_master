@@ -1,6 +1,7 @@
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 const User = require("../models/user");
+const Transaction = require("../models/transaction");
 
 // Select keys based on environment (live keys in production, test keys otherwise)
 const isProduction = process.env.NODE_ENV === "production";
@@ -17,11 +18,43 @@ const razorpay = new Razorpay({
   key_secret: RAZORPAY_KEY_SECRET,
 });
 
+// Startup diagnostic: which Razorpay mode/key did this process load?
+console.log(
+  "[Razorpay INIT] NODE_ENV=" + process.env.NODE_ENV +
+  " | isProduction=" + isProduction +
+  " | key_id=" + RAZORPAY_KEY_ID +
+  " | secret_set=" + (RAZORPAY_KEY_SECRET ? "yes(len " + RAZORPAY_KEY_SECRET.length + ")" : "NO"),
+);
+
 // Subscription plans
 const PLANS = {
   1: { months: 3, price: 300, name: "3 Month Membership" },
   2: { months: 6, price: 500, name: "6 Month Membership" },
   3: { months: 12, price: 800, name: "12 Month Membership" },
+};
+
+// Activate a user's subscription for the given plan.
+// Returns the updated user (or null if user not found).
+const activateSubscription = async (userId, plan, paymentId, orderId) => {
+  const expireDate = new Date();
+  expireDate.setMonth(expireDate.getMonth() + plan.months);
+
+  return User.findByIdAndUpdate(
+    userId,
+    {
+      subscription: true,
+      subsDetails: {
+        months: plan.months,
+        expire: expireDate,
+        paymentId,
+        orderId,
+        planName: plan.name,
+        amount: plan.price,
+        createdAt: new Date(),
+      },
+    },
+    { new: true },
+  );
 };
 
 /**
@@ -57,7 +90,34 @@ exports.createOrder = async (req, res) => {
       },
     };
 
+    console.log(
+      "[Create Order] planId=" + planId +
+      " | amount(paise)=" + options.amount +
+      " | using key_id=" + RAZORPAY_KEY_ID +
+      " | NODE_ENV=" + process.env.NODE_ENV,
+    );
+
     const order = await razorpay.orders.create(options);
+
+    console.log(
+      "[Create Order] SUCCESS order_id=" + order.id +
+      " | status=" + order.status +
+      " | amount=" + order.amount +
+      " | this order belongs to key_id=" + RAZORPAY_KEY_ID,
+    );
+
+    // Record the transaction (status: created)
+    await Transaction.create({
+      user: userId,
+      planId: Number(planId),
+      planName: plan.name,
+      months: plan.months,
+      amount: plan.price,
+      orderId: order.id,
+      status: "created",
+      currency: order.currency,
+      notes: options.notes,
+    });
 
     res.status(200).json({
       success: true,
@@ -93,6 +153,15 @@ exports.verifyPayment = async (req, res) => {
       .digest("hex");
 
     if (expectedSignature !== razorpay_signature) {
+      // Mark the transaction as failed if we can find it
+      await Transaction.findOneAndUpdate(
+        { orderId: razorpay_order_id },
+        {
+          status: "failed",
+          paymentId: razorpay_payment_id || null,
+          failureReason: "Invalid signature",
+        },
+      );
       return res.status(400).json({
         success: false,
         message: "Payment verification failed - Invalid signature",
@@ -108,26 +177,12 @@ exports.verifyPayment = async (req, res) => {
       });
     }
 
-    // Calculate subscription expiry
-    const expireDate = new Date();
-    expireDate.setMonth(expireDate.getMonth() + plan.months);
-
     // Update user subscription
-    const updatedUser = await User.findByIdAndUpdate(
+    const updatedUser = await activateSubscription(
       userId,
-      {
-        subscription: true,
-        subsDetails: {
-          months: plan.months,
-          expire: expireDate,
-          paymentId: razorpay_payment_id,
-          orderId: razorpay_order_id,
-          planName: plan.name,
-          amount: plan.price,
-          createdAt: new Date(),
-        },
-      },
-      { new: true }
+      plan,
+      razorpay_payment_id,
+      razorpay_order_id,
     );
 
     if (!updatedUser) {
@@ -136,6 +191,18 @@ exports.verifyPayment = async (req, res) => {
         message: "User not found",
       });
     }
+
+    // Mark the transaction as paid (verified by client)
+    await Transaction.findOneAndUpdate(
+      { orderId: razorpay_order_id },
+      {
+        status: "paid",
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature,
+        verifiedVia: "client",
+        failureReason: null,
+      },
+    );
 
     res.status(200).json({
       success: true,
@@ -195,59 +262,152 @@ exports.getSubscriptionStatus = async (req, res) => {
 };
 
 /**
+ * List the authenticated user's own transactions
+ * GET /payment/transactions  (user auth)
+ */
+exports.getTransactions = async (req, res) => {
+  try {
+    const { page = 1, perPage = 10, status } = req.query;
+    const user = req.user._id;
+
+    const [transactions, total] = await Promise.all([
+      Transaction.list({ page, perPage, status, user }),
+      Transaction.count({ user, status }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page, 10),
+      perPage: parseInt(perPage, 10),
+      transactions,
+    });
+  } catch (error) {
+    console.error("Get Transactions Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get transactions",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * List all transactions (admin only)
+ * GET /payment/admin/transactions  (admin auth)
+ * Optional filters: ?userId= &status= &page= &perPage=
+ */
+exports.getAllTransactions = async (req, res) => {
+  try {
+    const { page = 1, perPage = 20, status, userId } = req.query;
+
+    const [transactions, total] = await Promise.all([
+      Transaction.list({ page, perPage, status, user: userId || undefined }),
+      Transaction.count({ status, user: userId || undefined }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      total,
+      page: parseInt(page, 10),
+      perPage: parseInt(perPage, 10),
+      transactions,
+    });
+  } catch (error) {
+    console.error("Get All Transactions Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get transactions",
+      error: error.message,
+    });
+  }
+};
+
+/**
  * Razorpay Webhook (for server-to-server verification)
  * POST /payment/webhook
+ *
+ * Signature verification is mandatory: the webhook is a public, unauthenticated
+ * endpoint, so without a verified signature anyone could forge a "payment.captured"
+ * event and activate a subscription for free.
  */
 exports.webhook = async (req, res) => {
   try {
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
 
-    // If webhook secret is configured, verify signature
-    if (webhookSecret) {
-      const signature = req.headers["x-razorpay-signature"];
-      const body = JSON.stringify(req.body);
+    // Refuse to process webhooks unless a secret is configured.
+    if (!webhookSecret) {
+      console.error("Webhook rejected: RAZORPAY_WEBHOOK_SECRET is not set");
+      return res.status(500).json({
+        success: false,
+        message: "Webhook secret not configured",
+      });
+    }
 
-      const expectedSignature = crypto
-        .createHmac("sha256", webhookSecret)
-        .update(body)
-        .digest("hex");
+    const signature = req.headers["x-razorpay-signature"];
+    if (!signature) {
+      return res.status(400).json({ success: false, message: "Missing signature" });
+    }
 
-      if (signature !== expectedSignature) {
-        return res.status(400).json({ success: false, message: "Invalid webhook signature" });
-      }
+    // Use the raw request body captured in app.js for an exact-byte comparison.
+    // Re-stringifying the parsed JSON can differ from what Razorpay signed.
+    const rawBody = req.rawBody || JSON.stringify(req.body);
+
+    const expectedSignature = crypto
+      .createHmac("sha256", webhookSecret)
+      .update(rawBody)
+      .digest("hex");
+
+    // Constant-time comparison to avoid timing attacks
+    const sigBuffer = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expectedSignature);
+    if (
+      sigBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+    ) {
+      return res.status(400).json({ success: false, message: "Invalid webhook signature" });
     }
 
     const event = req.body.event;
     const payload = req.body.payload;
 
-    if (event === "payment.captured") {
+    if (event === "payment.captured" || event === "order.paid") {
       const payment = payload.payment.entity;
       const orderId = payment.order_id;
       const paymentId = payment.id;
 
-      // Get order details to find user
+      // Resolve user & plan from the order notes
       const order = await razorpay.orders.fetch(orderId);
       const userId = order.notes?.userId;
       const planId = parseInt(order.notes?.planId);
+      const plan = PLANS[planId];
 
-      if (userId && planId) {
-        const plan = PLANS[planId];
-        const expireDate = new Date();
-        expireDate.setMonth(expireDate.getMonth() + plan.months);
+      if (userId && plan) {
+        await activateSubscription(userId, plan, paymentId, orderId);
 
-        await User.findByIdAndUpdate(userId, {
-          subscription: true,
-          subsDetails: {
-            months: plan.months,
-            expire: expireDate,
-            paymentId: paymentId,
-            orderId: orderId,
-            planName: plan.name,
-            amount: plan.price,
-            createdAt: new Date(),
+        // Mark the transaction paid (idempotent: webhook may arrive more than once).
+        // Only flip to paid if it isn't already, so we don't clobber a client verify.
+        await Transaction.findOneAndUpdate(
+          { orderId },
+          {
+            status: "paid",
+            paymentId,
+            verifiedVia: "webhook",
+            failureReason: null,
           },
-        });
+        );
       }
+    } else if (event === "payment.failed") {
+      const payment = payload.payment.entity;
+      const orderId = payment.order_id;
+      await Transaction.findOneAndUpdate(
+        { orderId },
+        {
+          status: "failed",
+          paymentId: payment.id,
+          failureReason: payment.error_description || "Payment failed",
+        },
+      );
     }
 
     res.status(200).json({ success: true });

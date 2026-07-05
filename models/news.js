@@ -5,6 +5,7 @@ const newsSchema = new Schema(
   {
     name: { type: String, required: true },
     image: { type: String },
+    images: [{ type: String }],
     state: { type: String },
     description: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: "User", required: true },

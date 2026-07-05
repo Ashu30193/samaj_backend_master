@@ -7,7 +7,7 @@ const { validate } = require("../middlewares/policies");
 router.get("/test", user_controller.test);
 router.get("/isExistingLoginId", user_controller.isExistingLoginId);
 router.get("/list", validate, user_controller.list);
-router.get("/matrimonialList", user_controller.matrimonialList);
+router.get("/matrimonialList", validate, user_controller.matrimonialList);
 router.get("/currentuser", validate, user_controller.currentUser);
 router.get("/:id", validate, user_controller.findOne);
 router.put("/update", validate, user_controller.update);
@@ -17,6 +17,11 @@ router.post(
   "/updateMatrimonialStatus/:id",
   validate,
   user_controller.updateMatrimonialStatus,
+);
+router.post(
+  "/deleteMatrimonialProfile/:id",
+  validate,
+  user_controller.deleteMatrimonialProfile,
 );
 router.post(
   "/editUserPrivateDetails",

@@ -14,7 +14,8 @@
       "Bash(ssh:*)",
       "Bash(npm run build:*)",
       "Bash(NODE_OPTIONS=--openssl-legacy-provider npm run build:*)",
-      "Bash(scp:*)"
+      "Bash(scp:*)",
+      "Bash(node --check:*)"
     ],
     "deny": [],
     "ask": []

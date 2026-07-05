@@ -197,15 +197,25 @@ exports.create = async (req, res) => {
       newsData.updatedBy = user._id;
     }
 
-    // Handle optional file upload - only if file is actually provided
+    // Handle optional file upload(s) - only if file(s) actually provided
+    // express-fileupload gives a single object for one file, or an array when
+    // multiple files are sent under the same field name ("file").
     if (files && files.file) {
-      console.log("[News Create] Uploading file:", files.file.name);
+      const fileArray = Array.isArray(files.file) ? files.file : [files.file];
+      console.log(
+        "[News Create] Uploading files:",
+        fileArray.map(f => f.name),
+      );
       try {
-        const tempPath = files.file.tempFilePath || files.file.path;
-        const originalFileName = files.file.name;
-        const imageUrl = await upload(tempPath, originalFileName, "news");
-        newsData.image = imageUrl;
-        console.log("[News Create] File uploaded successfully:", imageUrl);
+        const imageUrls = await Promise.all(
+          fileArray.map(f => {
+            const tempPath = f.tempFilePath || f.path;
+            return upload(tempPath, f.name, "news");
+          }),
+        );
+        newsData.images = imageUrls;
+        newsData.image = imageUrls[0]; // kept for backward compatibility
+        console.log("[News Create] Files uploaded successfully:", imageUrls);
       } catch (uploadError) {
         console.log("[News Create] Upload error (continuing without image):", uploadError);
         // Continue without image instead of failing
