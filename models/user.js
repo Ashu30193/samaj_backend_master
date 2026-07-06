@@ -5,14 +5,30 @@ const bcrypt = require("bcryptjs"),
 
 const userSchema = new Schema(
   {
-    name: { type: String, valueType: "String", required: true },
+    name: {
+      type: String,
+      valueType: "String",
+      required: true,
+      trim: true,
+      minlength: [5, "Name must be at least 5 characters"],
+    },
     password: { type: String, bcrypt: true },
     dob: { type: Date, valueType: "Date" },
 
     family: {
-      father: { type: String, valueType: "String" },
+      father: {
+        type: String,
+        valueType: "String",
+        trim: true,
+        minlength: [5, "Father's name must be at least 5 characters"],
+      },
       mother: { type: String, valueType: "String" },
-      grandfather: { type: String, valueType: "String" },
+      grandfather: {
+        type: String,
+        valueType: "String",
+        trim: true,
+        minlength: [5, "Grandfather's name must be at least 5 characters"],
+      },
       spouse: { type: String, valueType: "String" },
       marriage_date: { type: Date, valueType: "Date" },
       children: { type: Number, valueType: "Number", default: 0 },
@@ -66,6 +82,7 @@ const userSchema = new Schema(
       unique: true,
       trim: true,
       required: true,
+      match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, "Please enter a valid email address"],
     },
     gender: {
       type: String,

@@ -295,34 +295,39 @@ exports.create = (req, res) => {
 
 exports.update = async function (req, res) {
   const { body, user } = req;
-  await User.updateOne({ _id: user._id }, body, async (err, updatedUser) => {
-    if (err) {
-      res.status(400);
-      res.send(err);
-    }
+  await User.updateOne(
+    { _id: user._id },
+    body,
+    { runValidators: true, context: "query" },
+    async (err, updatedUser) => {
+      if (err) {
+        res.status(400);
+        return res.send(err);
+      }
 
-    User.findOne({ _id: user._id })
-      .populate("role")
-      .exec(async (err, data) => {
-        if (err) {
-          res.status(400);
-          res.send(err);
-        }
-        if (data) {
-          // Convert to JSON to include virtuals like profileComplete
-          const userData = data.toJSON();
-          delete userData.password;
-          if (data.isVerified == null) {
-            let notification = await signupnotification(body.phone);
+      User.findOne({ _id: user._id })
+        .populate("role")
+        .exec(async (err, data) => {
+          if (err) {
+            res.status(400);
+            res.send(err);
           }
-          res.status(200);
-          res.send(userData);
-        } else {
-          res.status(400);
-          res.send("User not found !");
-        }
-      });
-  });
+          if (data) {
+            // Convert to JSON to include virtuals like profileComplete
+            const userData = data.toJSON();
+            delete userData.password;
+            if (data.isVerified == null) {
+              let notification = await signupnotification(body.phone);
+            }
+            res.status(200);
+            res.send(userData);
+          } else {
+            res.status(400);
+            res.send("User not found !");
+          }
+        });
+    },
+  );
 };
 
 exports.updateUser = (req, res) => {
